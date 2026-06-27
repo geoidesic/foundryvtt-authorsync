@@ -19892,7 +19892,7 @@ class WelcomeAppShell extends SvelteComponent {
     flush();
   }
 }
-const version = "0.0.1";
+const version = "0.0.2";
 class WelcomeApplication extends SvelteApp {
   /**
    * Default Application options
@@ -22303,6 +22303,101 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 })(jszip_min);
 var jszip_minExports = jszip_min.exports;
 const JSZip = /* @__PURE__ */ getDefaultExportFromCjs(jszip_minExports);
+function looksLikeTiptapJson(content) {
+  if (!content || typeof content !== "string") return false;
+  const trimmed = content.trim();
+  if (!trimmed.startsWith("{")) return false;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Boolean(parsed && typeof parsed === "object" && parsed.type === "doc");
+  } catch {
+    return false;
+  }
+}
+function applyMark(mark, text2) {
+  switch (mark.type) {
+    case "bold":
+    case "strong":
+      return `<strong>${text2}</strong>`;
+    case "italic":
+    case "em":
+      return `<em>${text2}</em>`;
+    case "underline":
+      return `<u>${text2}</u>`;
+    case "strike":
+      return `<s>${text2}</s>`;
+    case "code":
+      return `<code>${text2}</code>`;
+    case "link": {
+      const href = mark.attrs?.href ?? "#";
+      return `<a href="${escapeAttr(href)}">${text2}</a>`;
+    }
+    default:
+      return text2;
+  }
+}
+function escapeHtml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function escapeAttr(value) {
+  return escapeHtml(String(value)).replace(/"/g, "&quot;");
+}
+function renderNode(node) {
+  if (!node || typeof node !== "object") return "";
+  if (node.type === "text") {
+    let text2 = escapeHtml(node.text ?? "");
+    for (const mark of node.marks ?? []) {
+      text2 = applyMark(mark, text2);
+    }
+    return text2;
+  }
+  const children2 = Array.isArray(node.content) ? node.content.map(renderNode).join("") : "";
+  switch (node.type) {
+    case "doc":
+      return children2;
+    case "paragraph":
+      return `<p>${children2 || "<br>"}</p>`;
+    case "heading": {
+      const level = Math.min(6, Math.max(1, Number(node.attrs?.level) || 1));
+      return `<h${level}>${children2}</h${level}>`;
+    }
+    case "bulletList":
+      return `<ul>${children2}</ul>`;
+    case "orderedList":
+      return `<ol>${children2}</ol>`;
+    case "listItem":
+      return `<li>${children2}</li>`;
+    case "blockquote":
+      return `<blockquote>${children2}</blockquote>`;
+    case "codeBlock":
+      return `<pre><code>${children2}</code></pre>`;
+    case "horizontalRule":
+      return "<hr>";
+    case "hardBreak":
+      return "<br>";
+    case "image": {
+      const src = node.attrs?.src ?? "";
+      const alt = node.attrs?.alt ?? "";
+      const title = node.attrs?.title ?? "";
+      const titleAttr = title ? ` title="${escapeAttr(title)}"` : "";
+      return `<img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}"${titleAttr}>`;
+    }
+    case "table":
+      return `<table>${children2}</table>`;
+    case "tableRow":
+      return `<tr>${children2}</tr>`;
+    case "tableHeader":
+      return `<th>${children2}</th>`;
+    case "tableCell":
+      return `<td>${children2}</td>`;
+    default:
+      return children2;
+  }
+}
+function tiptapJsonToHtml(content) {
+  const parsed = typeof content === "string" ? JSON.parse(content) : content;
+  return renderNode(parsed);
+}
 class AuthorSyncAdapter {
   /**
    * Converts a Foundry JournalEntry into an AuthorSync-compatible tree node array.
@@ -22320,16 +22415,19 @@ class AuthorSyncAdapter {
       updatedAt: Date.now()
     };
     const pages = journalEntry.pages.contents.sort((a, b) => (a.sort || 0) - (b.sort || 0));
-    rootNode.children = pages.map((page) => ({
-      id: page.id,
-      label: page.name,
-      type: "leaf",
-      content: page.text.content || "",
-      contentType: page.text.format === 1 ? "html" : "markdown",
-      order: page.sort || 0,
-      createdAt: page._stats?.createdTime || Date.now(),
-      updatedAt: page._stats?.modifiedTime || Date.now()
-    }));
+    rootNode.children = pages.map((page) => {
+      const isMarkdown = page.text.format === CONST.JOURNAL_ENTRY_PAGE_FORMATS.MARKDOWN;
+      return {
+        id: page.id,
+        label: page.name,
+        type: "leaf",
+        content: isMarkdown ? page.text.markdown || page.text.content || "" : page.text.content || "",
+        contentType: isMarkdown ? "markdown" : "html",
+        order: page.sort || 0,
+        createdAt: page._stats?.createdTime || Date.now(),
+        updatedAt: page._stats?.modifiedTime || Date.now()
+      };
+    });
     return [rootNode];
   }
   /**
@@ -22409,25 +22507,254 @@ class AuthorSyncAdapter {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
-  static async importToJournal(authorSyncJson) {
-    log.i(`Importing AuthorSync tree to Foundry`);
-    let nodes = null;
+  /**
+   * Parse AuthorSync export JSON into a node array (tree or single node).
+   * @param {unknown} authorSyncJson
+   * @returns {Array<Object>}
+   */
+  static parseImportNodes(authorSyncJson) {
     if (Array.isArray(authorSyncJson)) {
-      nodes = authorSyncJson;
-    } else if (authorSyncJson && Array.isArray(authorSyncJson.tree)) {
-      nodes = authorSyncJson.tree;
+      return authorSyncJson;
     }
-    if (!Array.isArray(nodes)) {
-      throw new Error("Invalid AuthorSync JSON format");
+    if (authorSyncJson && typeof authorSyncJson === "object") {
+      if (Array.isArray(authorSyncJson.tree)) {
+        return authorSyncJson.tree;
+      }
+      if (authorSyncJson.type === "branch" || authorSyncJson.type === "leaf") {
+        return [authorSyncJson];
+      }
     }
-    const importFolder = await Folder.create({
-      name: "AuthorSync Import",
-      type: "JournalEntry",
-      parent: null
+    throw new Error("Invalid AuthorSync JSON format");
+  }
+  /**
+   * Import an AuthorSync .zip or .json file into Foundry journals.
+   * @param {File|Blob} file
+   * @param {{ parentFolderId?: string|null, createImportFolder?: boolean }} [options]
+   * @returns {Promise<Array<JournalEntry|Folder>>}
+   */
+  static async importFromFile(file, options = {}) {
+    const name = file.name?.toLowerCase?.() ?? "";
+    if (name.endsWith(".zip")) {
+      return this.importFromZip(file, options);
+    }
+    const text2 = await file.text();
+    const parsed = JSON.parse(text2);
+    const nodes = this.parseImportNodes(parsed);
+    const preparedNodes = await this.prepareNodesForFoundry(nodes, /* @__PURE__ */ new Map());
+    return this.importToJournal(preparedNodes, options);
+  }
+  /**
+   * Import an AuthorSync zip bundle (data.json plus images/assets).
+   * @param {Blob|File} zipBlob
+   * @param {{ parentFolderId?: string|null, createImportFolder?: boolean }} [options]
+   * @returns {Promise<Array<JournalEntry|Folder>>}
+   */
+  static async importFromZip(zipBlob, options = {}) {
+    const zip = new JSZip();
+    const zipContent = await zip.loadAsync(zipBlob);
+    const dataFile = zipContent.file("data.json");
+    if (!dataFile) {
+      throw new Error("Invalid AuthorSync export: missing data.json");
+    }
+    const parsed = JSON.parse(await dataFile.async("string"));
+    const nodes = this.parseImportNodes(parsed);
+    const imageBlobs = await this.extractImageBlobsFromZip(zipContent);
+    const preparedNodes = await this.prepareNodesForFoundry(nodes, imageBlobs);
+    return this.importToJournal(preparedNodes, options);
+  }
+  /**
+   * @param {JSZip} zipContent
+   * @returns {Promise<Map<string, Blob>>}
+   */
+  static async extractImageBlobsFromZip(zipContent) {
+    const images = /* @__PURE__ */ new Map();
+    for (const folderName of ["images", "assets"]) {
+      const prefix = `${folderName}/`;
+      await Promise.all(
+        Object.keys(zipContent.files).map(async (fullPath) => {
+          if (!fullPath.startsWith(prefix) || fullPath.endsWith("/")) return;
+          const file = zipContent.file(fullPath);
+          if (!file) return;
+          const blob = await file.async("blob");
+          const storageKey = fullPath.slice(prefix.length);
+          if (!storageKey) return;
+          images.set(storageKey, blob);
+          const withoutExt = storageKey.replace(/\.[^/.]+$/, "");
+          if (withoutExt !== storageKey) {
+            images.set(withoutExt, blob);
+          }
+          const basename = storageKey.split("/").pop();
+          if (basename) {
+            images.set(basename, blob);
+            const basenameNoExt = basename.replace(/\.[^/.]+$/, "");
+            if (basenameNoExt !== basename) {
+              images.set(basenameNoExt, blob);
+            }
+          }
+        })
+      );
+    }
+    return images;
+  }
+  /**
+   * @param {string} src
+   * @returns {string|null}
+   */
+  static parseImageStorageKey(src) {
+    if (!src || typeof src !== "string") return null;
+    const apiPathMatch = src.match(/\/api\/images\/[^/]+\/([^/"'\s)?]+)/);
+    if (apiPathMatch) return apiPathMatch[1];
+    const queryMatch = src.match(/[?&]imageId=([^&"'\s)]+)/);
+    if (queryMatch) {
+      const imageId = queryMatch[1];
+      return imageId.includes(".") ? imageId : `${imageId}.jpg`;
+    }
+    const legacyPathMatch = src.match(/\/api\/images\/(.+?)(?:\.|$|[)"'])/);
+    if (legacyPathMatch) {
+      const segment = legacyPathMatch[1].split("/").pop() || legacyPathMatch[1];
+      return segment.includes(".") ? segment : `${segment}.jpg`;
+    }
+    const assetMatch = src.match(
+      /(?:^|\/)assets\/([^/"'\s)?]+\.[a-zA-Z0-9]+)|(?:images\/)([^/"'\s)?]+\.[a-zA-Z0-9]+)/
+    );
+    if (assetMatch) return assetMatch[1] || assetMatch[2];
+    const filenameMatch = src.match(/([^/"'\s)?]+\.(?:png|jpe?g|gif|webp|svg))/i);
+    if (filenameMatch) return filenameMatch[1];
+    return null;
+  }
+  /**
+   * @param {Map<string, Blob>} imageBlobs
+   * @returns {Promise<Map<string, string>>}
+   */
+  static async uploadImportImages(imageBlobs) {
+    const uploaded = /* @__PURE__ */ new Map();
+    if (!imageBlobs.size) return uploaded;
+    const basePath = `worlds/${game.world.id}/authorsync-import`;
+    const uploadedByFilename = /* @__PURE__ */ new Map();
+    for (const [storageKey, blob] of imageBlobs.entries()) {
+      const filename = storageKey.includes("/") ? storageKey.split("/").pop() : storageKey;
+      if (!filename) continue;
+      let path = uploadedByFilename.get(filename);
+      if (!path) {
+        const file = new File([blob], filename, { type: blob.type || "application/octet-stream" });
+        const targetPath = `${basePath}/${filename}`;
+        const response = await FilePicker.upload("data", targetPath, file, {}, { notify: false });
+        path = response?.path ?? targetPath;
+        uploadedByFilename.set(filename, path);
+      }
+      uploaded.set(storageKey, path);
+      const withoutExt = storageKey.replace(/\.[^/.]+$/, "");
+      if (withoutExt !== storageKey) uploaded.set(withoutExt, path);
+      uploaded.set(filename, path);
+      uploaded.set(`assets/${filename}`, path);
+      uploaded.set(`images/${filename}`, path);
+    }
+    return uploaded;
+  }
+  /**
+   * @param {string} src
+   * @param {Map<string, string>} uploadedImages
+   * @returns {string}
+   */
+  static rewriteImageReference(src, uploadedImages) {
+    const storageKey = this.parseImageStorageKey(src);
+    if (!storageKey) return src;
+    for (const candidate of [
+      storageKey,
+      storageKey.replace(/\.[^/.]+$/, ""),
+      storageKey.split("/").pop()
+    ]) {
+      if (candidate && uploadedImages.has(candidate)) {
+        return uploadedImages.get(candidate);
+      }
+    }
+    return src;
+  }
+  /**
+   * @param {string} content
+   * @param {Map<string, string>} uploadedImages
+   * @returns {string}
+   */
+  static rewriteImageUrlsInContent(content, uploadedImages) {
+    if (!content || uploadedImages.size === 0) return content;
+    if (looksLikeTiptapJson(content)) {
+      const doc = JSON.parse(content);
+      const rewriteNode = (node) => {
+        if (!node || typeof node !== "object") return;
+        if (node.type === "image" && node.attrs?.src) {
+          node.attrs.src = this.rewriteImageReference(node.attrs.src, uploadedImages);
+        }
+        for (const child of node.content ?? []) {
+          rewriteNode(child);
+        }
+      };
+      rewriteNode(doc);
+      return JSON.stringify(doc);
+    }
+    return content.replace(/!\[[^\]]*]\(([^)]+)\)/g, (match, src) => {
+      const rewritten = this.rewriteImageReference(src, uploadedImages);
+      return rewritten === src ? match : `![](${rewritten})`;
+    }).replace(/<img([^>]+)src=["']([^"']+)["']/gi, (match, attrs, src) => {
+      const rewritten = this.rewriteImageReference(src, uploadedImages);
+      return rewritten === src ? match : `<img${attrs}src="${rewritten}"`;
     });
+  }
+  /**
+   * @param {Array<Object>} nodes
+   * @param {Map<string, Blob>} imageBlobs
+   * @returns {Promise<Array<Object>>}
+   */
+  static async prepareNodesForFoundry(nodes, imageBlobs) {
+    const uploadedImages = await this.uploadImportImages(imageBlobs);
+    const prepareNode = async (node) => {
+      if (!node || typeof node !== "object") return null;
+      const copy = { ...node };
+      if (copy.type === "leaf" && copy.content) {
+        let content = this.rewriteImageUrlsInContent(copy.content, uploadedImages);
+        if (looksLikeTiptapJson(content)) {
+          copy.content = tiptapJsonToHtml(content);
+          copy.contentType = "html";
+        } else if (!copy.contentType) {
+          copy.contentType = content.trim().startsWith("<") ? "html" : "markdown";
+        }
+      }
+      if (Array.isArray(copy.children)) {
+        const children2 = [];
+        for (const child of copy.children) {
+          const preparedChild = await prepareNode(child);
+          if (preparedChild) children2.push(preparedChild);
+        }
+        copy.children = children2;
+      }
+      return copy;
+    };
+    const prepared = [];
+    for (const node of nodes) {
+      const preparedNode = await prepareNode(node);
+      if (preparedNode) prepared.push(preparedNode);
+    }
+    return prepared;
+  }
+  /**
+   * @param {Array<Object>|Object} authorSyncJson
+   * @param {{ parentFolderId?: string|null, createImportFolder?: boolean }} [options]
+   * @returns {Promise<Array<JournalEntry|Folder>>}
+   */
+  static async importToJournal(authorSyncJson, options = {}) {
+    log.i(`Importing AuthorSync tree to Foundry`);
+    const nodes = Array.isArray(authorSyncJson) ? authorSyncJson : this.parseImportNodes(authorSyncJson);
+    let parentFolderId = options.parentFolderId ?? null;
+    if (options.createImportFolder !== false && parentFolderId == null) {
+      const importFolder = await Folder.create({
+        name: "AuthorSync Import",
+        type: "JournalEntry",
+        parent: null
+      });
+      parentFolderId = importFolder.id;
+    }
     const createdItems = [];
     for (const node of nodes) {
-      const item = await this.importNodeRecursive(node, importFolder.id);
+      const item = await this.importNodeRecursive(node, parentFolderId);
       if (item) createdItems.push(item);
     }
     log.i(`Successfully imported ${createdItems.length} top-level AuthorSync node(s)`);
@@ -22443,15 +22770,9 @@ class AuthorSyncAdapter {
           name: node.label || "Imported from AuthorSync",
           folder: parentFolderId
         });
-        const pageData = branchLeaves.map((child, index) => ({
-          name: child.label || `Page ${index + 1}`,
-          type: "text",
-          text: {
-            content: child.content || "",
-            format: child.contentType === "markdown" ? 2 : 1
-          },
-          sort: child.order || index
-        }));
+        const pageData = branchLeaves.map(
+          (child, index) => this.buildJournalPageData(child, index)
+        );
         if (pageData.length > 0) {
           await journalEntry.createEmbeddedDocuments("JournalEntryPage", pageData);
         }
@@ -22472,19 +22793,118 @@ class AuthorSyncAdapter {
         name: node.label || "Imported from AuthorSync",
         folder: parentFolderId
       });
-      const pageData = [{
-        name: node.label || "Page",
-        type: "text",
-        text: {
-          content: node.content || "",
-          format: node.contentType === "markdown" ? 2 : 1
-        },
-        sort: node.order || 0
-      }];
+      const pageData = [this.buildJournalPageData(node, node.order || 0)];
       await journalEntry.createEmbeddedDocuments("JournalEntryPage", pageData);
       return journalEntry;
     }
     return null;
+  }
+  /**
+   * Build Foundry journal page data from an AuthorSync leaf node.
+   * @param {Object} node
+   * @param {number} sort
+   * @returns {Object}
+   */
+  static buildJournalPageData(node, sort = 0) {
+    const isMarkdown = node.contentType === "markdown";
+    const source = node.content || "";
+    const text2 = {
+      format: isMarkdown ? CONST.JOURNAL_ENTRY_PAGE_FORMATS.MARKDOWN : CONST.JOURNAL_ENTRY_PAGE_FORMATS.HTML,
+      content: isMarkdown ? "" : source
+    };
+    if (isMarkdown) {
+      text2.markdown = source;
+      const converter = foundry.applications.sheets.journal.JournalEntryPageProseMirrorSheet?._converter;
+      if (converter?.makeHTML) {
+        text2.content = converter.makeHTML(source);
+      }
+    }
+    return {
+      name: node.label || "Page",
+      type: "text",
+      text: text2,
+      sort: node.order ?? sort
+    };
+  }
+}
+const AUTHORSYNC_LOGO_ICON_CLASS = "authorsync-logo-icon";
+function authorsyncButtonHtml(label) {
+  return `<i class="${AUTHORSYNC_LOGO_ICON_CLASS}"></i> ${label}`;
+}
+function pickAuthorSyncImportFile() {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".zip,.json,application/zip,application/json";
+    input.addEventListener("change", () => resolve(input.files?.[0] ?? null));
+    input.addEventListener("cancel", () => resolve(null));
+    input.click();
+  });
+}
+function decorateAuthorSyncButton(button, label) {
+  button.type = "button";
+  button.classList.add("button", "authorsync-action-btn");
+  button.setAttribute("data-tooltip", label);
+  button.innerHTML = authorsyncButtonHtml(label);
+}
+function pushJournalContextOption(options, config) {
+  const iconClass = config.iconClass ?? AUTHORSYNC_LOGO_ICON_CLASS;
+  const visible = config.visible ?? (() => true);
+  const onClick = config.onClick;
+  if (Number(game.version) >= 13) {
+    options.push({
+      name: config.label,
+      icon: `<i class="${iconClass}"></i>`,
+      condition: visible,
+      callback: (li) => onClick(new Event("click"), li)
+    });
+    return;
+  }
+  options.push({
+    label: config.label,
+    icon: iconClass,
+    visible,
+    onClick
+  });
+}
+async function runAuthorSyncImport() {
+  const file = await pickAuthorSyncImportFile();
+  if (!file) return;
+  const created = await AuthorSyncAdapter.importFromFile(file, {
+    parentFolderId: null,
+    createImportFolder: true
+  });
+  const count = created.length;
+  ui.notifications.info(
+    count === 1 ? `Imported 1 item from AuthorSync` : `Imported ${count} items from AuthorSync`
+  );
+}
+async function runAuthorSyncExport(journal) {
+  const zipBlob = await AuthorSyncAdapter.exportJournalAsZip(journal);
+  AuthorSyncAdapter.downloadBlob(zipBlob, `authorsync-${journal.name.slugify()}.zip`);
+  ui.notifications.info(`Exported "${journal.name}" to AuthorSync zip`);
+}
+function createAuthorSyncActionButton(action, handler) {
+  const button = document.createElement("button");
+  decorateAuthorSyncButton(button, action === "export" ? "Export" : "Import");
+  button.classList.add(`authorsync-${action}-btn`);
+  button.addEventListener("click", handler);
+  return button;
+}
+async function handleExport(journal) {
+  try {
+    await runAuthorSyncExport(journal);
+  } catch (err) {
+    console.error(err);
+    ui.notifications.error(`AuthorSync export failed: ${err.message}`);
+  }
+}
+async function handleImport() {
+  try {
+    await runAuthorSyncImport();
+  } catch (err) {
+    console.error(err);
+    ui.notifications.error(`AuthorSync import failed: ${err.message}`);
   }
 }
 function init(app, html, data) {
@@ -22501,44 +22921,33 @@ function init(app, html, data) {
     const header = html2.querySelector(".journal-header");
     if (!header) return;
     if (header.querySelector(".authorsync-export-btn")) return;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "button authorsync-export-btn";
-    button.setAttribute("data-tooltip", "Export to AuthorSync");
-    button.innerHTML = '<img class="authorsync-logo-icon" src="/modules/foundryvtt-authorsync/assets/authorsync-logo.svg" alt="AuthorSync"> AuthorSync';
-    header.appendChild(button);
-    button.addEventListener("click", async () => {
-      try {
-        const zipBlob = await AuthorSyncAdapter.exportJournalAsZip(app2.document);
-        AuthorSyncAdapter.downloadBlob(zipBlob, `authorsync-${app2.document.name.slugify()}.zip`);
-        ui.notifications.info(`Exported "${app2.document.name}" to AuthorSync zip`);
-      } catch (err) {
-        console.error(err);
-        ui.notifications.error(`AuthorSync export failed: ${err.message}`);
-      }
+    const exportButton = createAuthorSyncActionButton("export", async () => {
+      await handleExport(app2.document);
     });
+    header.append(exportButton);
+  });
+  Hooks.on("renderJournalDirectory", (app2, html2) => {
+    const header = html2.querySelector(".directory-header .header-actions") ?? html2.querySelector(".directory-header .action-buttons") ?? html2.querySelector(".directory-header");
+    if (!header) return;
+    if (header.querySelector(".authorsync-import-btn")) return;
+    const importButton = createAuthorSyncActionButton("import", async () => {
+      await handleImport();
+    });
+    header.append(importButton);
   });
   Hooks.on("getJournalEntryContextOptions", (directory, options) => {
-    options.push({
+    pushJournalContextOption(options, {
       label: "Export to AuthorSync",
-      icon: "authorsync-logo-icon",
       visible: (li) => {
         const entryId = li.dataset.entryId;
         const entry = directory.collection.get(entryId);
         return entry?.isOwner;
       },
-      onClick: async (event, li) => {
-        try {
-          const entryId = li.dataset.entryId;
-          const journal = directory.collection.get(entryId);
-          if (!journal) return;
-          const zipBlob = await AuthorSyncAdapter.exportJournalAsZip(journal);
-          AuthorSyncAdapter.downloadBlob(zipBlob, `authorsync-${journal.name.slugify()}.zip`);
-          ui.notifications.info(`Exported "${journal.name}" to AuthorSync zip`);
-        } catch (err) {
-          console.error(err);
-          ui.notifications.error(`AuthorSync export failed: ${err.message}`);
-        }
+      onClick: async (_event, li) => {
+        const entryId = li.dataset.entryId;
+        const journal = directory.collection.get(entryId);
+        if (!journal) return;
+        await handleExport(journal);
       }
     });
   });
