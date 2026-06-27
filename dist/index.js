@@ -1,47 +1,6 @@
 const MODULE_ID = "foundryvtt-authorsync";
 const MODULE_TITLE = "Authorsync";
 const LOG_PREFIX = "AUTHORSYNC |";
-const log = {
-  ASSERT: 1,
-  ERROR: 2,
-  WARN: 3,
-  INFO: 4,
-  DEBUG: 5,
-  VERBOSE: 6,
-  set level(level) {
-    this.a = level >= this.ASSERT ? console.assert.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.e = level >= this.ERROR ? console.error.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.w = level >= this.WARN ? console.warn.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.i = level >= this.INFO ? console.info.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.d = level >= this.DEBUG ? console.debug.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.v = level >= this.VERBOSE ? console.log.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.loggingLevel = level;
-  },
-  get level() {
-    return this.loggingLevel;
-  }
-};
-function safeGetSetting(module, key, defaultValue = void 0) {
-  try {
-    if (!globalThis?.game || !game.settings) return defaultValue;
-    const fullKey = `${module}.${key}`;
-    if (game.settings.settings?.has?.(fullKey)) return game.settings.get(module, key);
-    return defaultValue;
-  } catch (e) {
-    console.warn(`safeGetSetting: failed to read ${module}.${key}`, e);
-    return defaultValue;
-  }
-}
-function localize$1(string) {
-  if (typeof game === "undefined") return string;
-  return game.i18n.localize(`${MODULE_ID}.${string}`);
-}
 function noop() {
 }
 const identity = (x) => x;
@@ -13991,7 +13950,7 @@ function applyStyles(node, properties) {
     }
   };
 }
-function localize(stringId, data) {
+function localize$1(stringId, data) {
   const result = !isObject(data) ? globalThis.game.i18n.localize(stringId) : globalThis.game.i18n.format(stringId, data);
   return result !== void 0 ? result : "";
 }
@@ -17362,7 +17321,7 @@ function instance$5($$self, $$props, $$invalidate) {
     }
     if ($$self.$$.dirty & /*button*/
     1) {
-      $$invalidate(7, label = isObject(button) && typeof button.label === "string" ? localize(button.label) : void 0);
+      $$invalidate(7, label = isObject(button) && typeof button.label === "string" ? localize$1(button.label) : void 0);
     }
     if ($$self.$$.dirty & /*button*/
     1) {
@@ -17705,7 +17664,7 @@ function create_key_block(ctx) {
   let header;
   let t0;
   let h1;
-  let t1_value = localize(
+  let t1_value = localize$1(
     /*$storeTitle*/
     ctx[10]
   ) + "";
@@ -17846,7 +17805,7 @@ function create_key_block(ctx) {
         }
       }
       if ((!current || dirty[0] & /*$storeTitle*/
-      1024) && t1_value !== (t1_value = localize(
+      1024) && t1_value !== (t1_value = localize$1(
         /*$storeTitle*/
         ctx2[10]
       ) + "")) set_data(t1, t1_value);
@@ -19714,6 +19673,47 @@ class ApplicationShell extends SvelteComponent {
   }
 }
 Hooks.once("init", () => FVTTConfigure.initialize());
+const log = {
+  ASSERT: 1,
+  ERROR: 2,
+  WARN: 3,
+  INFO: 4,
+  DEBUG: 5,
+  VERBOSE: 6,
+  set level(level) {
+    this.a = level >= this.ASSERT ? console.assert.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.e = level >= this.ERROR ? console.error.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.w = level >= this.WARN ? console.warn.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.i = level >= this.INFO ? console.info.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.d = level >= this.DEBUG ? console.debug.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.v = level >= this.VERBOSE ? console.log.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.loggingLevel = level;
+  },
+  get level() {
+    return this.loggingLevel;
+  }
+};
+function safeGetSetting(module, key, defaultValue = void 0) {
+  try {
+    if (!globalThis?.game || !game.settings) return defaultValue;
+    const fullKey = `${module}.${key}`;
+    if (game.settings.settings?.has?.(fullKey)) return game.settings.get(module, key);
+    return defaultValue;
+  } catch (e) {
+    console.warn(`safeGetSetting: failed to read ${module}.${key}`, e);
+    return defaultValue;
+  }
+}
+function localize(string) {
+  if (typeof game === "undefined") return string;
+  return game.i18n.localize(`${MODULE_ID}.${string}`);
+}
 function create_default_slot(ctx) {
   let main;
   let h3;
@@ -19744,7 +19744,7 @@ function create_default_slot(ctx) {
       div0.innerHTML = `<a href="https://www.aardvark.games" class="svelte-69t7wh"><img class="white" src="/modules/${MODULE_ID}/assets/aardvark-logo.webp" alt="Aardvark Game Studios Logo" height="50" width="50" style="fill: white; border: none; width: auto;"/></a>`;
       div2 = element("div");
       div1 = element("div");
-      div1.textContent = `${localize$1("Title")} ${localize$1("Welcome.CreatedBy")}`;
+      div1.textContent = `${localize("Title")} ${localize("Welcome.CreatedBy")}`;
       a1 = element("a");
       a1.textContent = "Aardvark Game Studios";
       footer1 = element("footer");
@@ -19892,7 +19892,7 @@ class WelcomeAppShell extends SvelteComponent {
     flush();
   }
 }
-const version = "0.0.2";
+const version = "0.0.3";
 class WelcomeApplication extends SvelteApp {
   /**
    * Default Application options
@@ -19923,7 +19923,7 @@ class WelcomeApplication extends SvelteApp {
   }
 }
 function registerSettings(app) {
-  log.i("Building module settings");
+  window.GAS.log.i("Building module settings");
   debugSetting();
   debugHooksSetting();
   dontShowWelcome();
@@ -22405,7 +22405,7 @@ class AuthorSyncAdapter {
    * @returns {Array<Object>} The AuthorSync tree node array.
    */
   static exportJournal(journalEntry) {
-    log.i(`Exporting JournalEntry "${journalEntry.name}" to AuthorSync format`);
+    window.GAS.log.i(`Exporting JournalEntry "${journalEntry.name}" to AuthorSync format`);
     const rootNode = {
       id: journalEntry.id,
       label: journalEntry.name,
@@ -22741,7 +22741,7 @@ class AuthorSyncAdapter {
    * @returns {Promise<Array<JournalEntry|Folder>>}
    */
   static async importToJournal(authorSyncJson, options = {}) {
-    log.i(`Importing AuthorSync tree to Foundry`);
+    window.GAS.log.i(`Importing AuthorSync tree to Foundry`);
     const nodes = Array.isArray(authorSyncJson) ? authorSyncJson : this.parseImportNodes(authorSyncJson);
     let parentFolderId = options.parentFolderId ?? null;
     if (options.createImportFolder !== false && parentFolderId == null) {
@@ -22757,7 +22757,7 @@ class AuthorSyncAdapter {
       const item = await this.importNodeRecursive(node, parentFolderId);
       if (item) createdItems.push(item);
     }
-    log.i(`Successfully imported ${createdItems.length} top-level AuthorSync node(s)`);
+    window.GAS.log.i(`Successfully imported ${createdItems.length} top-level AuthorSync node(s)`);
     return createdItems;
   }
   static async importNodeRecursive(node, parentFolderId) {
@@ -22907,9 +22907,11 @@ async function handleImport() {
     ui.notifications.error(`AuthorSync import failed: ${err.message}`);
   }
 }
+window.GAS = window.GAS || {};
 function init(app, html, data) {
-  console.log("[GAS] init() called - module initialising");
-  log.i("Initialising");
+  window.GAS.log = log;
+  window.GAS.log.level = log.DEBUG;
+  window.GAS.log.i("init() entry point");
   if (safeGetSetting(MODULE_ID, "debug.hooks", false)) {
     CONFIG.debug.hooks = true;
   }
@@ -22918,24 +22920,32 @@ function init(app, html, data) {
     window.MIN_WINDOW_HEIGHT = 50;
   }
   registerSettings();
+  const debugEnabled = safeGetSetting(MODULE_ID, "debug", false);
+  if (debugEnabled) {
+    window.GAS.log.level = log.DEBUG;
+  }
+  window.GAS.log.i("Debug setting value:", debugEnabled, "log.level now:", window.GAS.log.level);
   const journalSheetHook = game.version >= 13 ? "renderJournalEntrySheet" : "renderJournalSheet";
+  window.GAS.log.i("Registering journal sheet hook as:", journalSheetHook);
   Hooks.on(journalSheetHook, (app2, html2) => {
-    console.log(`[GAS] ${journalSheetHook} hook fired`, { appId: app2?.id, docName: app2?.document?.name, htmlType: typeof html2, isJQuery: !!(html2 && html2.jquery) });
+    window.GAS.log.i(`${journalSheetHook} hook fired`, { appId: app2?.id, docName: app2?.document?.name });
     const root = html2 instanceof HTMLElement ? html2 : html2 && html2[0];
-    console.log(`[GAS] ${journalSheetHook} root resolved`, root);
     const header = root?.querySelector?.(".journal-header");
-    console.log(`[GAS] ${journalSheetHook} header found?`, !!header, header?.className);
+    window.GAS.log.i(`${journalSheetHook} header found?`, !!header);
     if (!header) return;
     if (header.querySelector(".authorsync-export-btn")) return;
     const exportButton = createAuthorSyncActionButton("export", async () => {
       await handleExport(app2.document);
     });
     header.append(exportButton);
-    console.log(`[GAS] ${journalSheetHook} appended export button`);
+    window.GAS.log.i(`${journalSheetHook} appended export button`);
   });
+  window.GAS.log.i("About to register renderJournalDirectory hook");
   Hooks.on("renderJournalDirectory", (app2, html2) => {
+    window.GAS.log.i("renderJournalDirectory hook fired");
     const root = html2 instanceof HTMLElement ? html2 : html2[0];
     const header = root?.querySelector?.(".directory-header .header-actions") ?? root?.querySelector?.(".directory-header .action-buttons") ?? root?.querySelector?.(".directory-header");
+    window.GAS.log.i("renderJournalDirectory header found?", !!header);
     if (!header) return;
     if (header.querySelector(".authorsync-import-btn")) return;
     const importButton = createAuthorSyncActionButton("import", async () => {
@@ -22943,6 +22953,7 @@ function init(app, html, data) {
     });
     header.append(importButton);
   });
+  window.GAS.log.i("About to register getJournalEntryContextOptions hook");
   Hooks.on("getJournalEntryContextOptions", (directory, options) => {
     pushJournalContextOption(options, {
       label: "Export to AuthorSync",
@@ -22959,18 +22970,17 @@ function init(app, html, data) {
       }
     });
   });
+  window.GAS.log.i("init() complete — all hooks registered");
 }
 function ready(app, html, data) {
   if (!game.modules.get(MODULE_ID).active) {
-    log.w("Module is not active");
+    window.GAS.log.w("Module is not active");
     return;
   }
   if (!safeGetSetting(MODULE_ID, "dontShowWelcome", false)) {
     new WelcomeApplication().render(true, { focus: true });
   }
 }
-window.log = log;
-log.level = log.DEBUG;
 Hooks.once("init", init);
 Hooks.once("ready", ready);
 //# sourceMappingURL=index.js.map
