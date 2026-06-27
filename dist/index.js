@@ -1,6 +1,6 @@
 const MODULE_ID = "foundryvtt-authorsync";
-const MODULE_TITLE = "Foundryvtt Authorsync";
-const LOG_PREFIX = "FOUNDRYVTTAUTHORSYNC |";
+const MODULE_TITLE = "Authorsync";
+const LOG_PREFIX = "AUTHORSYNC |";
 const log = {
   ASSERT: 1,
   ERROR: 2,
@@ -22908,6 +22908,7 @@ async function handleImport() {
   }
 }
 function init(app, html, data) {
+  console.log("[GAS] init() called - module initialising");
   log.i("Initialising");
   if (safeGetSetting(MODULE_ID, "debug.hooks", false)) {
     CONFIG.debug.hooks = true;
@@ -22917,17 +22918,24 @@ function init(app, html, data) {
     window.MIN_WINDOW_HEIGHT = 50;
   }
   registerSettings();
-  Hooks.on("renderJournalEntrySheet", (app2, html2) => {
-    const header = html2.querySelector(".journal-header");
+  const journalSheetHook = game.version >= 13 ? "renderJournalEntrySheet" : "renderJournalSheet";
+  Hooks.on(journalSheetHook, (app2, html2) => {
+    console.log(`[GAS] ${journalSheetHook} hook fired`, { appId: app2?.id, docName: app2?.document?.name, htmlType: typeof html2, isJQuery: !!(html2 && html2.jquery) });
+    const root = html2 instanceof HTMLElement ? html2 : html2 && html2[0];
+    console.log(`[GAS] ${journalSheetHook} root resolved`, root);
+    const header = root?.querySelector?.(".journal-header");
+    console.log(`[GAS] ${journalSheetHook} header found?`, !!header, header?.className);
     if (!header) return;
     if (header.querySelector(".authorsync-export-btn")) return;
     const exportButton = createAuthorSyncActionButton("export", async () => {
       await handleExport(app2.document);
     });
     header.append(exportButton);
+    console.log(`[GAS] ${journalSheetHook} appended export button`);
   });
   Hooks.on("renderJournalDirectory", (app2, html2) => {
-    const header = html2.querySelector(".directory-header .header-actions") ?? html2.querySelector(".directory-header .action-buttons") ?? html2.querySelector(".directory-header");
+    const root = html2 instanceof HTMLElement ? html2 : html2[0];
+    const header = root?.querySelector?.(".directory-header .header-actions") ?? root?.querySelector?.(".directory-header .action-buttons") ?? root?.querySelector?.(".directory-header");
     if (!header) return;
     if (header.querySelector(".authorsync-import-btn")) return;
     const importButton = createAuthorSyncActionButton("import", async () => {

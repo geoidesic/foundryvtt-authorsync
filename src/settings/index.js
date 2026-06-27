@@ -1,9 +1,8 @@
-import { log } from '~/src/helpers/utility';
 import { MODULE_ID } from '~/src/helpers/constants';
 
 
 export function registerSettings(app) {
-  log.i("Building module settings");
+  window.GAS.log.i("Building module settings");
 
   /** World Settings */
   debugSetting();

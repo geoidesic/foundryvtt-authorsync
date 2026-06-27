@@ -1,6 +1,6 @@
 {
   "id": "foundryvtt-authorsync",
-  "title": "Foundryvtt Authorsync",
+  "title": "Authorsync",
   "description": "Import / Export for Journals to and from Authorsync.app",
   "version": "0.0.2",
   "styles": [

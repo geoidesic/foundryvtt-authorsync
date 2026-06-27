@@ -1,5 +1,4 @@
 import JSZip from 'jszip';
-import { log } from '~/src/helpers/utility';
 import { looksLikeTiptapJson, tiptapJsonToHtml } from '~/src/helpers/tiptap-to-html';
 
 /**
@@ -13,7 +12,7 @@ export default class AuthorSyncAdapter {
      * @returns {Array<Object>} The AuthorSync tree node array.
      */
     static exportJournal(journalEntry) {
-        log.i(`Exporting JournalEntry "${journalEntry.name}" to AuthorSync format`);
+        window.GAS.log.i(`Exporting JournalEntry "${journalEntry.name}" to AuthorSync format`);
 
         const rootNode = {
             id: journalEntry.id,
@@ -409,7 +408,7 @@ export default class AuthorSyncAdapter {
      * @returns {Promise<Array<JournalEntry|Folder>>}
      */
     static async importToJournal(authorSyncJson, options = {}) {
-        log.i(`Importing AuthorSync tree to Foundry`);
+        window.GAS.log.i(`Importing AuthorSync tree to Foundry`);
 
         const nodes = Array.isArray(authorSyncJson)
             ? authorSyncJson
@@ -431,7 +430,7 @@ export default class AuthorSyncAdapter {
             if (item) createdItems.push(item);
         }
 
-        log.i(`Successfully imported ${createdItems.length} top-level AuthorSync node(s)`);
+        window.GAS.log.i(`Successfully imported ${createdItems.length} top-level AuthorSync node(s)`);
         return createdItems;
     }
 

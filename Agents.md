@@ -1,3 +1,104 @@
+# GitHub Copilot Integration Guide
+
+## Cursor Rules
+- Always use replace_string_in_file for edits unless ambiguous
+- Include 3-5 lines of context when using replace_string_in_file
+- Prefer replace_string_in_file over insert_edit_into_file
+
+## Workflow
+1. Search for existing instructions using grep_search
+2. Consolidate findings into Agents.md
+3. Delete original files after consolidation
+4. Add memory reference to Agents.md
+
+## Memory Setup
+```
+/memories/repo/always_use_agents.md
+Always reference Agents.md for workspace-specific Copilot instructions
+```
+
+---
+
+# Project Rules
+
+## No Build Commands
+- Never use `yarn run build` because I'm using HMR
+- Never use `bun run build` because I'm using HMR
+- Never use `npm run build` because I'm using HMR
+
+## ESM Only (No require)
+- This is an ESM project. Don't use `require`. Use `import`.
+
+## Svelte Preprocess Pug Rules
+
+### Indentation
+- In Pug templates, `+else()` statements must be nested within the related `+if` statement, indented one level deeper.
+- **Correct:**
+  ```pug
+  +if("condition")
+    element
+    +else()
+      other-element
+  ```
+- **Incorrect:**
+  ```pug
+  +if("condition")
+    element
+  +else()
+    other-element
+  ```
+
+### Content
+- Content must always be contained within an element, never as a bare pipe beneath an `+if` statement.
+- **Correct:**
+  ```pug
+  +if("condition")
+    span content here
+  ```
+- **Incorrect:**
+  ```pug
+  +if("condition")
+    | content here
+  ```
+
+### Conditional Logic
+- Only separate `+if()` and `+else()` statements are supported. Structure logic as separate conditional blocks.
+- **Correct:**
+  ```pug
+  +if("type === 'tool'")
+    .tool-config
+  +if("type === 'armor'")
+    .armor-config
+  +if("type === 'weapon'")
+    .weapon-config
+  ```
+- **Incorrect:**
+  ```pug
+  +if("type === 'tool'")
+    .tool-config
+  +else if("type === 'armor'")
+    .armor-config
+  +else if("type === 'weapon'")
+    .weapon-config
+  ```
+
+### Event Handlers
+- Event handlers must use the `!=` operator to prevent HTML encoding. Avoid arrow functions and the `=` operator.
+- **Correct:**
+  ```pug
+  button(on:click!="{handleClick(param)}")
+  button(on:click!="{handleClick}")
+  div(class!="{isActive ? 'active' : ''}")
+  ```
+- **Incorrect:**
+  ```pug
+  button(on:click="{() => handleClick(param)}")
+  button(on:click="{handleClick(param)}")
+  div(class="{isActive ? 'active' : ''}")
+  ```
+
+---
+
 # FoundryVTT Actor Studio - AI Coding Guide
 
 NB: don't ask for permission to code, just do it.
@@ -17,7 +118,6 @@ NB: don't ask for permission to code, just do it.
 
 - **Frontend Stack**:
 - **CRITICAL**: ALL Svelte components MUST use Pug templates with `<template lang="pug">` - NEVER use standard HTML markup
-- Pug templates with Svelte preprocessing (NOT standard Pug - see `.cursor/rules/`)
 - **CRITICAL: Svelte Pug attribute assignment syntax:**
   - Always use `ComponentName(attr1="{expr1}" attr2="{expr2}")` for all props/attributes.
   - **Do NOT use** `{attr1=expr1}` or `{attr1}` or `{...}` syntax. These are invalid in Svelte Pug.

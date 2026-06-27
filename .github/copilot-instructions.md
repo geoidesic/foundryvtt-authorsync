@@ -1,0 +1,14 @@
+# Copilot Instructions — Mandatory Workspace Rules
+
+**CRITICAL:** Before processing ANY user request, suggestion, or code change, you MUST first read and obey the rules in `Agents.md` (located at the workspace root).
+
+The file `/memories/repo/always_use_agents.md` also points to `Agents.md` as the authoritative source.
+
+Key non-negotiable rules from Agents.md (always enforce these):
+- **No Build Commands**: Never suggest or execute `yarn run build`, `bun run build`, or `npm run build`. HMR is mandatory (`bun dev`).
+- **ESM Only**: Never use `require()`. Always use `import`.
+- **Svelte Pug**: All Svelte components MUST use `<template lang="pug">`. Never use standard HTML.
+- **Edit Rule**: Always use `replace_string_in_file` for edits (include 3–5 lines of context). Prefer it over `insert_edit_into_file`.
+- Follow the full Svelte Pug attribute syntax, SASS style blocks, conditional logic nesting, and all other patterns documented in Agents.md.
+
+If `Agents.md` is attached to the conversation or present in the workspace, treat it as the primary source of truth. Do not propose actions that violate it.
