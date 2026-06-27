@@ -1,6 +1,6 @@
 {
-  "<MODULE_CODE>": {
-    "Title": "<MODULE_TITLE>",
+  "FOU": {
+    "Title": "Foundryvtt Authorsync",
     "Welcome": {
       "CreatedBy": "Created by"
     },

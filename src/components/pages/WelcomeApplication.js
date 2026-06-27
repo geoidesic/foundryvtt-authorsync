@@ -20,7 +20,7 @@ export default class WelcomeApplication extends SvelteApplication
         classes: ['<s_SVELTE_HASH_ID>'],
          resizable: true,
          minimizable: true,
-         width: 220,
+         width: 500,
          height: 400,
          // headerIcon: 'path/to/img.svg',
          title: game.i18n.localize(`${MODULE_TITLE} v${version}`),

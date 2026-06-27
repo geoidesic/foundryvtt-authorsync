@@ -1,3 +1,47 @@
+const MODULE_ID = "foundryvtt-authorsync";
+const MODULE_TITLE = "Foundryvtt Authorsync";
+const LOG_PREFIX = "FOUNDRYVTTAUTHORSYNC |";
+const log = {
+  ASSERT: 1,
+  ERROR: 2,
+  WARN: 3,
+  INFO: 4,
+  DEBUG: 5,
+  VERBOSE: 6,
+  set level(level) {
+    this.a = level >= this.ASSERT ? console.assert.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.e = level >= this.ERROR ? console.error.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.w = level >= this.WARN ? console.warn.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.i = level >= this.INFO ? console.info.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.d = level >= this.DEBUG ? console.debug.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.v = level >= this.VERBOSE ? console.log.bind(window.console, LOG_PREFIX) : () => {
+    };
+    this.loggingLevel = level;
+  },
+  get level() {
+    return this.loggingLevel;
+  }
+};
+function safeGetSetting(module, key, defaultValue = void 0) {
+  try {
+    if (!globalThis?.game || !game.settings) return defaultValue;
+    const fullKey = `${module}.${key}`;
+    if (game.settings.settings?.has?.(fullKey)) return game.settings.get(module, key);
+    return defaultValue;
+  } catch (e) {
+    console.warn(`safeGetSetting: failed to read ${module}.${key}`, e);
+    return defaultValue;
+  }
+}
+function localize$1(string) {
+  if (typeof game === "undefined") return string;
+  return game.i18n.localize(`${MODULE_ID}.${string}`);
+}
 function noop() {
 }
 const identity = (x) => x;
@@ -83,6 +127,9 @@ function get_all_dirty_from_scope($$scope) {
   }
   return -1;
 }
+function null_to_empty(value) {
+  return value == null ? "" : value;
+}
 function action_destroyer(action_result) {
   return action_result && is_function(action_result.destroy) ? action_result.destroy : noop;
 }
@@ -155,6 +202,9 @@ function destroy_each(iterations, detaching) {
 }
 function element(name) {
   return document.createElement(name);
+}
+function svg_element(name) {
+  return document.createElementNS("http://www.w3.org/2000/svg", name);
 }
 function text(data) {
   return document.createTextNode(data);
@@ -622,7 +672,7 @@ function make_dirty(component, i) {
   }
   component.$$.dirty[i / 31 | 0] |= 1 << i % 31;
 }
-function init(component, options, instance2, create_fragment2, not_equal, props, append_styles = null, dirty = [-1]) {
+function init$1(component, options, instance2, create_fragment2, not_equal, props, append_styles = null, dirty = [-1]) {
   const parent_component = current_component;
   set_current_component(component);
   const $$ = component.$$ = {
@@ -647,17 +697,17 @@ function init(component, options, instance2, create_fragment2, not_equal, props,
     root: options.target || parent_component.$$.root
   };
   append_styles && append_styles($$.root);
-  let ready = false;
+  let ready2 = false;
   $$.ctx = instance2 ? instance2(component, options.props || {}, (i, ret, ...rest) => {
     const value = rest.length ? rest[0] : ret;
     if ($$.ctx && not_equal($$.ctx[i], $$.ctx[i] = value)) {
       if (!$$.skip_bound && $$.bound[i]) $$.bound[i](value);
-      if (ready) make_dirty(component, i);
+      if (ready2) make_dirty(component, i);
     }
     return ret;
   }) : [];
   $$.update();
-  ready = true;
+  ready2 = true;
   run_all($$.before_update);
   $$.fragment = create_fragment2 ? create_fragment2($$.ctx) : false;
   if (options.target) {
@@ -728,149 +778,49 @@ class SvelteComponent {
 const PUBLIC_VERSION = "4";
 if (typeof window !== "undefined")
   (window.__svelte || (window.__svelte = { v: /* @__PURE__ */ new Set() })).v.add(PUBLIC_VERSION);
-function backInOut(t) {
-  const s = 1.70158 * 1.525;
-  if ((t *= 2) < 1) return 0.5 * (t * t * ((s + 1) * t - s));
-  return 0.5 * ((t -= 2) * t * ((s + 1) * t + s) + 2);
+class Frozen {
+  /**
+   * @hideconstructor
+   */
+  constructor() {
+    throw new Error("Frozen constructor: This is a static class and should not be constructed.");
+  }
+  /**
+   * @param {Iterable<[K, V]>} [entries] - Target Map or iterable of [key, value] pairs.
+   *
+   * @returns {ReadonlyMap<K, V>} A strictly ReadonlyMap.
+   *
+   * @template K, V
+   */
+  static Map(entries) {
+    const result = new Map(entries);
+    result.set = void 0;
+    result.delete = void 0;
+    result.clear = void 0;
+    return (
+      /** @type {ReadonlyMap<K, V>} */
+      result
+    );
+  }
+  /**
+   * @param {Iterable<T>} [data] - Target Set or iterable list.
+   *
+   * @returns {ReadonlySet<T>} A strictly ReadonlySet.
+   *
+   * @template T
+   */
+  static Set(data) {
+    const result = new Set(data);
+    result.add = void 0;
+    result.delete = void 0;
+    result.clear = void 0;
+    return (
+      /** @type {ReadonlySet<T>} */
+      result
+    );
+  }
 }
-function backIn(t) {
-  const s = 1.70158;
-  return t * t * ((s + 1) * t - s);
-}
-function backOut(t) {
-  const s = 1.70158;
-  return --t * t * ((s + 1) * t + s) + 1;
-}
-function bounceOut(t) {
-  const a = 4 / 11;
-  const b = 8 / 11;
-  const c = 9 / 10;
-  const ca = 4356 / 361;
-  const cb = 35442 / 1805;
-  const cc = 16061 / 1805;
-  const t2 = t * t;
-  return t < a ? 7.5625 * t2 : t < b ? 9.075 * t2 - 9.9 * t + 3.4 : t < c ? ca * t2 - cb * t + cc : 10.8 * t * t - 20.52 * t + 10.72;
-}
-function bounceInOut(t) {
-  return t < 0.5 ? 0.5 * (1 - bounceOut(1 - t * 2)) : 0.5 * bounceOut(t * 2 - 1) + 0.5;
-}
-function bounceIn(t) {
-  return 1 - bounceOut(1 - t);
-}
-function circInOut(t) {
-  if ((t *= 2) < 1) return -0.5 * (Math.sqrt(1 - t * t) - 1);
-  return 0.5 * (Math.sqrt(1 - (t -= 2) * t) + 1);
-}
-function circIn(t) {
-  return 1 - Math.sqrt(1 - t * t);
-}
-function circOut(t) {
-  return Math.sqrt(1 - --t * t);
-}
-function cubicInOut(t) {
-  return t < 0.5 ? 4 * t * t * t : 0.5 * Math.pow(2 * t - 2, 3) + 1;
-}
-function cubicIn(t) {
-  return t * t * t;
-}
-function cubicOut(t) {
-  const f = t - 1;
-  return f * f * f + 1;
-}
-function elasticInOut(t) {
-  return t < 0.5 ? 0.5 * Math.sin(13 * Math.PI / 2 * 2 * t) * Math.pow(2, 10 * (2 * t - 1)) : 0.5 * Math.sin(-13 * Math.PI / 2 * (2 * t - 1 + 1)) * Math.pow(2, -10 * (2 * t - 1)) + 1;
-}
-function elasticIn(t) {
-  return Math.sin(13 * t * Math.PI / 2) * Math.pow(2, 10 * (t - 1));
-}
-function elasticOut(t) {
-  return Math.sin(-13 * (t + 1) * Math.PI / 2) * Math.pow(2, -10 * t) + 1;
-}
-function expoInOut(t) {
-  return t === 0 || t === 1 ? t : t < 0.5 ? 0.5 * Math.pow(2, 20 * t - 10) : -0.5 * Math.pow(2, 10 - t * 20) + 1;
-}
-function expoIn(t) {
-  return t === 0 ? t : Math.pow(2, 10 * (t - 1));
-}
-function expoOut(t) {
-  return t === 1 ? t : 1 - Math.pow(2, -10 * t);
-}
-function quadInOut(t) {
-  t /= 0.5;
-  if (t < 1) return 0.5 * t * t;
-  t--;
-  return -0.5 * (t * (t - 2) - 1);
-}
-function quadIn(t) {
-  return t * t;
-}
-function quadOut(t) {
-  return -t * (t - 2);
-}
-function quartInOut(t) {
-  return t < 0.5 ? 8 * Math.pow(t, 4) : -8 * Math.pow(t - 1, 4) + 1;
-}
-function quartIn(t) {
-  return Math.pow(t, 4);
-}
-function quartOut(t) {
-  return Math.pow(t - 1, 3) * (1 - t) + 1;
-}
-function quintInOut(t) {
-  if ((t *= 2) < 1) return 0.5 * t * t * t * t * t;
-  return 0.5 * ((t -= 2) * t * t * t * t + 2);
-}
-function quintIn(t) {
-  return t * t * t * t * t;
-}
-function quintOut(t) {
-  return --t * t * t * t * t + 1;
-}
-function sineInOut(t) {
-  return -0.5 * (Math.cos(Math.PI * t) - 1);
-}
-function sineIn(t) {
-  const v = Math.cos(t * Math.PI * 0.5);
-  if (Math.abs(v) < 1e-14) return 1;
-  else return 1 - v;
-}
-function sineOut(t) {
-  return Math.sin(t * Math.PI / 2);
-}
-const svelteEasingFunc = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-  __proto__: null,
-  backIn,
-  backInOut,
-  backOut,
-  bounceIn,
-  bounceInOut,
-  bounceOut,
-  circIn,
-  circInOut,
-  circOut,
-  cubicIn,
-  cubicInOut,
-  cubicOut,
-  elasticIn,
-  elasticInOut,
-  elasticOut,
-  expoIn,
-  expoInOut,
-  expoOut,
-  linear: identity,
-  quadIn,
-  quadInOut,
-  quadOut,
-  quartIn,
-  quartInOut,
-  quartOut,
-  quintIn,
-  quintInOut,
-  quintOut,
-  sineIn,
-  sineInOut,
-  sineOut
-}, Symbol.toStringTag, { value: "Module" }));
+Object.freeze(Frozen);
 function deepMerge(target, ...sourceObj) {
   if (Object.prototype.toString.call(target) !== "[object Object]") {
     throw new TypeError(`deepMerge error: 'target' is not an object.`);
@@ -1042,268 +992,15 @@ function safeSet(data, accessor, value, { operation = "set", createMissing = fal
   }
   return result;
 }
-class StyleParse {
-  static #regexPixels = /(\d+)\s*px/;
-  /**
-   * Parses a pixel string / computed styles. Ex. `100px` returns `100`.
-   *
-   * @param {string}   value - Value to parse.
-   *
-   * @returns {number|undefined} The integer component of a pixel string.
-   */
-  static pixels(value) {
-    if (typeof value !== "string") {
-      return void 0;
-    }
-    const isPixels = this.#regexPixels.test(value);
-    const number = parseInt(value);
-    return isPixels && Number.isFinite(number) ? number : void 0;
-  }
-  /**
-   * Returns the pixel value for `1rem` based on the root document element. You may apply an optional multiplier.
-   *
-   * @param {number} [multiplier=1] - Optional multiplier to apply to `rem` pixel value; default: 1.
-   *
-   * @param {object} [options] - Optional parameters.
-   *
-   * @param {Document} [options.targetDocument=document] The target DOM {@link Document} if different from the main
-   *        browser global `document`.
-   *
-   * @returns {number} The pixel value for `1rem` with or without a multiplier based on the root document element.
-   */
-  static remPixels(multiplier = 1, { targetDocument = document } = {}) {
-    return targetDocument?.documentElement ? multiplier * parseFloat(globalThis.getComputedStyle(targetDocument.documentElement).fontSize) : void 0;
-  }
-}
-class TJSStyleManager {
-  /** @type {CSSStyleRule} */
-  #cssRule;
-  /** @type {string} */
-  #docKey;
-  /** @type {string} */
-  #selector;
-  /** @type {HTMLStyleElement} */
-  #styleElement;
-  /** @type {number} */
-  #version;
-  /**
-   *
-   * @param {object}   opts - Options.
-   *
-   * @param {string}   opts.docKey - Required key providing a link to a specific style sheet element.
-   *
-   * @param {string}   [opts.selector=:root] - Selector element.
-   *
-   * @param {Document} [opts.document] - Target document to load styles into.
-   *
-   * @param {number}   [opts.version] - An integer representing the version / level of styles being managed.
-   */
-  constructor({ docKey, selector = ":root", document: document2 = globalThis.document, version: version2 } = {}) {
-    if (typeof docKey !== "string") {
-      throw new TypeError(`StyleManager error: 'docKey' is not a string.`);
-    }
-    if (Object.prototype.toString.call(document2) !== "[object HTMLDocument]") {
-      throw new TypeError(`TJSStyleManager error: 'document' is not an instance of HTMLDocument.`);
-    }
-    if (typeof selector !== "string") {
-      throw new TypeError(`StyleManager error: 'selector' is not a string.`);
-    }
-    if (version2 !== void 0 && !Number.isSafeInteger(version2) && version2 < 1) {
-      throw new TypeError(`StyleManager error: 'version' is defined and is not a positive integer >= 1.`);
-    }
-    this.#selector = selector;
-    this.#docKey = docKey;
-    this.#version = version2;
-    if (document2[this.#docKey] === void 0) {
-      this.#styleElement = document2.createElement("style");
-      document2.head.append(this.#styleElement);
-      this.#styleElement._STYLE_MANAGER_VERSION = version2;
-      this.#styleElement.sheet.insertRule(`${selector} {}`, 0);
-      this.#cssRule = this.#styleElement.sheet.cssRules[0];
-      document2[docKey] = this.#styleElement;
-    } else {
-      this.#styleElement = document2[docKey];
-      this.#cssRule = this.#styleElement.sheet.cssRules[0];
-      if (version2) {
-        const existingVersion = this.#styleElement._STYLE_MANAGER_VERSION ?? 0;
-        if (version2 > existingVersion) {
-          this.#cssRule.style.cssText = "";
-        }
-      }
-    }
-  }
-  /**
-   * @returns {string} Provides an accessor to get the `cssText` for the style sheet.
-   */
-  get cssText() {
-    return this.#cssRule.style.cssText;
-  }
-  /**
-   * @returns {number} Returns the version of this instance.
-   */
-  get version() {
-    return this.#version;
-  }
-  /**
-   * Provides a copy constructor to duplicate an existing TJSStyleManager instance into a new document.
-   *
-   * Note: This is used to support the `PopOut` module.
-   *
-   * @param {Document} [document] Target browser document to clone into.
-   *
-   * @returns {TJSStyleManager} New style manager instance.
-   */
-  clone(document2 = globalThis.document) {
-    const newStyleManager = new TJSStyleManager({
-      selector: this.#selector,
-      docKey: this.#docKey,
-      document: document2,
-      version: this.#version
-    });
-    newStyleManager.#cssRule.style.cssText = this.#cssRule.style.cssText;
-    return newStyleManager;
-  }
-  get() {
-    const cssText = this.#cssRule.style.cssText;
-    const result = {};
-    if (cssText !== "") {
-      for (const entry of cssText.split(";")) {
-        if (entry !== "") {
-          const values = entry.split(":");
-          result[values[0].trim()] = values[1];
-        }
-      }
-    }
-    return result;
-  }
-  /**
-   * Gets a particular CSS variable.
-   *
-   * @param {string}   key - CSS variable property key.
-   *
-   * @returns {string} Returns CSS variable value.
-   */
-  getProperty(key) {
-    if (typeof key !== "string") {
-      throw new TypeError(`StyleManager error: 'key' is not a string.`);
-    }
-    return this.#cssRule.style.getPropertyValue(key);
-  }
-  /**
-   * Set rules by property / value; useful for CSS variables.
-   *
-   * @param {{ [key: string]: string }}  rules - An object with property / value string pairs to load.
-   *
-   * @param {boolean}                 [overwrite=true] - When true overwrites any existing values.
-   */
-  setProperties(rules, overwrite = true) {
-    if (!isObject(rules)) {
-      throw new TypeError(`StyleManager error: 'rules' is not an object.`);
-    }
-    if (typeof overwrite !== "boolean") {
-      throw new TypeError(`StyleManager error: 'overwrite' is not a boolean.`);
-    }
-    if (overwrite) {
-      for (const [key, value] of Object.entries(rules)) {
-        this.#cssRule.style.setProperty(key, value);
-      }
-    } else {
-      for (const [key, value] of Object.entries(rules)) {
-        if (this.#cssRule.style.getPropertyValue(key) === "") {
-          this.#cssRule.style.setProperty(key, value);
-        }
-      }
-    }
-  }
-  /**
-   * Sets a particular property.
-   *
-   * @param {string}   key - CSS variable property key.
-   *
-   * @param {string}   value - CSS variable value.
-   *
-   * @param {boolean}  [overwrite=true] - Overwrite any existing value.
-   */
-  setProperty(key, value, overwrite = true) {
-    if (typeof key !== "string") {
-      throw new TypeError(`StyleManager error: 'key' is not a string.`);
-    }
-    if (typeof value !== "string") {
-      throw new TypeError(`StyleManager error: 'value' is not a string.`);
-    }
-    if (typeof overwrite !== "boolean") {
-      throw new TypeError(`StyleManager error: 'overwrite' is not a boolean.`);
-    }
-    if (overwrite) {
-      this.#cssRule.style.setProperty(key, value);
-    } else {
-      if (this.#cssRule.style.getPropertyValue(key) === "") {
-        this.#cssRule.style.setProperty(key, value);
-      }
-    }
-  }
-  /**
-   * Removes the property keys specified. If `keys` is an iterable list then all property keys in the list are removed.
-   *
-   * @param {Iterable<string>} keys - The property keys to remove.
-   */
-  removeProperties(keys) {
-    if (!isIterable(keys)) {
-      throw new TypeError(`StyleManager error: 'keys' is not an iterable list.`);
-    }
-    for (const key of keys) {
-      if (typeof key === "string") {
-        this.#cssRule.style.removeProperty(key);
-      }
-    }
-  }
-  /**
-   * Removes a particular CSS variable.
-   *
-   * @param {string}   key - CSS variable property key.
-   *
-   * @returns {string} CSS variable value when removed.
-   */
-  removeProperty(key) {
-    if (typeof key !== "string") {
-      throw new TypeError(`StyleManager error: 'key' is not a string.`);
-    }
-    return this.#cssRule.style.removeProperty(key);
-  }
-}
-const cssVariables = new TJSStyleManager({ docKey: "#__trl-root-styles", version: 1 });
-function isWritableStore(store) {
-  if (store === null || store === void 0) {
-    return false;
-  }
-  switch (typeof store) {
-    case "function":
-    case "object":
-      return typeof store.subscribe === "function" && typeof store.set === "function" && typeof store.update === "function";
-  }
-  return false;
-}
-function subscribeIgnoreFirst(store, update2) {
-  let firedFirst = false;
-  return store.subscribe((value) => {
-    if (!firedFirst) {
-      firedFirst = true;
-    } else {
-      update2(value);
-    }
-  });
-}
 class CrossWindow {
   /**
    * @private
    */
   constructor() {
+    throw new Error("CrossWindow constructor: This is a static class and should not be constructed.");
   }
-  // eslint-disable-line no-useless-constructor
   /**
    * Class names for all focusable element types.
-   *
-   * @type {string[]}
    */
   static #FocusableElementClassNames = [
     "HTMLAnchorElement",
@@ -1318,8 +1015,6 @@ class CrossWindow {
   ];
   /**
    * DOM nodes with defined `ownerDocument` property.
-   *
-   * @type {Set<number>}
    */
   static #NodesWithOwnerDocument = /* @__PURE__ */ new Set([
     Node.ELEMENT_NODE,
@@ -1327,17 +1022,13 @@ class CrossWindow {
     Node.COMMENT_NODE,
     Node.DOCUMENT_FRAGMENT_NODE
   ]);
-  // Various UI Event sets for duck typing by constructor name.
+  // Various UIEvent sets for duck typing by constructor name.
   /**
    * Duck typing class names for pointer events.
-   *
-   * @type {Set<string>}
    */
   static #PointerEventSet = /* @__PURE__ */ new Set(["MouseEvent", "PointerEvent"]);
   /**
    * Duck typing class names for all UIEvents.
-   *
-   * @type {Set<string>}
    */
   static #UIEventSet = /* @__PURE__ */ new Set([
     "UIEvent",
@@ -1353,45 +1044,48 @@ class CrossWindow {
   ]);
   /**
    * Duck typing class names for events considered as user input.
-   *
-   * @type {Set<string>}
    */
   static #UserInputEventSet = /* @__PURE__ */ new Set(["KeyboardEvent", "MouseEvent", "PointerEvent"]);
   /**
    * Internal options used by `#checkDOMInstanceType` when retrieving the Window reference from a Node that doesn't
    * define `ownerDocument`.
-   *
-   * @type {{throws: boolean}}
    */
   static #optionsInternalCheckDOM = { throws: false };
   // DOM Querying ---------------------------------------------------------------------------------------------------
   /**
+   * Convenience method to test if the given target element is the current active element.
+   *
+   * @param target - Element to test as current active element.
+   */
+  static isActiveElement(target) {
+    if (this.#hasOwnerDocument(target)) {
+      return target?.ownerDocument?.activeElement === target;
+    }
+    return false;
+  }
+  /**
    * Convenience method to retrieve the `document.activeElement` value in the current Window context of a DOM Node /
    * Element, EventTarget, Document, or Window.
    *
-   * @param {Document | EventTarget | Node | UIEvent | Window}  target - DOM Node / Element, EventTarget, Document,
-   *        UIEvent or Window to query.
+   * @param target - DOM Node / Element, EventTarget, Document, UIEvent or Window to query.
    *
-   * @param {object} [options] - Options.
+   * @param [options] - Options.
    *
-   * @param {boolean} [options.throws=true] - When `true` and target is invalid throw an exception. If `false` and the
-   *        target is invalid `undefined` is returned; default: `true`.
-   *
-   * @returns {Element | null} Active element or `undefined` when `throws` option is `false` and the target is invalid.
+   * @returns Active element or `undefined` when `throws` option is `false` and the target is invalid.
    *
    * @throws {@link TypeError} Target must be a DOM Node / Element, Document, UIEvent, or Window.
    */
   static getActiveElement(target, { throws = true } = {}) {
-    if (this.#NodesWithOwnerDocument.has(target?.nodeType)) {
+    if (this.#hasOwnerDocument(target)) {
       return target?.ownerDocument?.activeElement ?? null;
     }
     if (this.isUIEvent(target) && isObject(target?.view)) {
       return target?.view?.document?.activeElement ?? null;
     }
-    if (isObject(target?.defaultView)) {
+    if (this.isDocument(target)) {
       return target?.activeElement ?? null;
     }
-    if (isObject(target?.document) && isObject(target?.location)) {
+    if (this.isWindow(target)) {
       return target?.document?.activeElement ?? null;
     }
     if (throws) {
@@ -1403,29 +1097,25 @@ class CrossWindow {
    * Convenience method to retrieve the `Document` value in the current context of a DOM Node / Element, EventTarget,
    * Document, UIEvent, or Window.
    *
-   * @param {Document | EventTarget | Node | UIEvent | Window}  target - DOM Node / Element, EventTarget, Document,
-   *        UIEvent or Window to query.
+   * @param target - DOM Node / Element, EventTarget, Document, UIEvent or Window to query.
    *
-   * @param {object} [options] - Options.
-   *
-   * @param {boolean} [options.throws=true] - When `true` and target is invalid throw an exception. If `false` and the
-   *        target is invalid `undefined` is returned; default: `true`.
+   * @param [options] - Options.
    *
    * @returns {Document} Active document or `undefined` when `throws` option is `false` and the target is invalid.
    *
    * @throws {@link TypeError} Target must be a DOM Node / Element, Document, UIEvent, or Window.
    */
   static getDocument(target, { throws = true } = {}) {
-    if (this.#NodesWithOwnerDocument.has(target?.nodeType)) {
+    if (this.#hasOwnerDocument(target)) {
       return target?.ownerDocument;
     }
     if (this.isUIEvent(target) && isObject(target?.view)) {
       return target?.view?.document;
     }
-    if (isObject(target?.defaultView)) {
+    if (this.isDocument(target)) {
       return target;
     }
-    if (isObject(target?.document) && isObject(target?.location)) {
+    if (this.isWindow(target)) {
       return target?.document;
     }
     if (throws) {
@@ -1437,29 +1127,25 @@ class CrossWindow {
    * Convenience method to retrieve the `Window` value in the current context of a DOM Node / Element, EventTarget,
    * Document, or Window.
    *
-   * @param {Document | EventTarget | Node | UIEvent | Window}  target - DOM Node / Element, EventTarget, Document,
-   *        UIEvent or Window to query.
+   * @param target - DOM Node / Element, EventTarget, Document, UIEvent or Window to query.
    *
-   * @param {object} [options] - Options.
+   * @param [options] - Options.
    *
-   * @param {boolean} [options.throws=true] - When `true` and target is invalid throw an exception. If `false` and the
-   *        target is invalid `undefined` is returned; default: `true`.
-   *
-   * @returns {Window} Active window or `undefined` when `throws` option is `false` and the target is invalid.
+   * @returns Active window or `undefined` when `throws` option is `false` and the target is invalid.
    *
    * @throws {@link TypeError} Target must be a DOM Node / Element, Document, UIEvent, or Window.
    */
   static getWindow(target, { throws = true } = {}) {
-    if (this.#NodesWithOwnerDocument.has(target?.nodeType)) {
+    if (this.#hasOwnerDocument(target)) {
       return target.ownerDocument?.defaultView ?? globalThis;
     }
     if (this.isUIEvent(target) && isObject(target?.view)) {
       return target.view ?? globalThis;
     }
-    if (isObject(target?.defaultView)) {
+    if (this.isDocument(target)) {
       return target.defaultView ?? globalThis;
     }
-    if (isObject(target?.document) && isObject(target?.location)) {
+    if (this.isWindow(target)) {
       return target;
     }
     if (throws) {
@@ -1469,21 +1155,61 @@ class CrossWindow {
   }
   // ES / Browser API basic prototype tests -------------------------------------------------------------------------
   /**
+   * Provides basic prototype string type checking if `target` is a CSSImportRule.
+   *
+   * @param target - A potential CSSImportRule to test.
+   *
+   * @returns Is `target` a CSSImportRule.
+   */
+  static isCSSImportRule(target) {
+    return isObject(target) && Object.prototype.toString.call(target) === "[object CSSImportRule]";
+  }
+  /**
+   * Provides basic prototype string type checking if `target` is a CSSLayerBlockRule.
+   *
+   * @param target - A potential CSSLayerBlockRule to test.
+   *
+   * @returns Is `target` a CSSLayerBlockRule.
+   */
+  static isCSSLayerBlockRule(target) {
+    return isObject(target) && Object.prototype.toString.call(target) === "[object CSSLayerBlockRule]";
+  }
+  /**
+   * Provides basic prototype string type checking if `target` is a CSSStyleRule.
+   *
+   * @param target - A potential CSSStyleRule to test.
+   *
+   * @returns Is `target` a CSSStyleRule.
+   */
+  static isCSSStyleRule(target) {
+    return isObject(target) && Object.prototype.toString.call(target) === "[object CSSStyleRule]";
+  }
+  /**
+   * Provides basic prototype string type checking if `target` is a CSSStyleSheet.
+   *
+   * @param target - A potential CSSStyleSheet to test.
+   *
+   * @returns Is `target` a CSSStyleSheet.
+   */
+  static isCSSStyleSheet(target) {
+    return isObject(target) && Object.prototype.toString.call(target) === "[object CSSStyleSheet]";
+  }
+  /**
    * Provides basic prototype string type checking if `target` is a Document.
    *
-   * @param {unknown}  target - A potential Document to test.
+   * @param target - A potential Document to test.
    *
-   * @returns {target is Document} Is `target` a Document.
+   * @returns Is `target` a Document.
    */
   static isDocument(target) {
-    return isObject(target) && Object.prototype.toString.call(target) === "[object Document]";
+    return isObject(target) && /^\[object (HTML)?Document]$/.test(Object.prototype.toString.call(target));
   }
   /**
    * Provides basic prototype string type checking if `target` is a Map.
    *
-   * @param {unknown}  target - A potential Map to test.
+   * @param target - A potential Map to test.
    *
-   * @returns {target is Map} Is `target` a Map.
+   * @returns Is `target` a Map.
    */
   static isMap(target) {
     return isObject(target) && Object.prototype.toString.call(target) === "[object Map]";
@@ -1491,9 +1217,9 @@ class CrossWindow {
   /**
    * Provides basic prototype string type checking if `target` is a Promise.
    *
-   * @param {unknown}  target - A potential Promise to test.
+   * @param target - A potential Promise to test.
    *
-   * @returns {target is Promise} Is `target` a Promise.
+   * @returns Is `target` a Promise.
    */
   static isPromise(target) {
     return isObject(target) && Object.prototype.toString.call(target) === "[object Promise]";
@@ -1501,9 +1227,9 @@ class CrossWindow {
   /**
    * Provides basic prototype string type checking if `target` is a RegExp.
    *
-   * @param {unknown}  target - A potential RegExp to test.
+   * @param target - A potential RegExp to test.
    *
-   * @returns {target is RegExp} Is `target` a RegExp.
+   * @returns Is `target` a RegExp.
    */
   static isRegExp(target) {
     return isObject(target) && Object.prototype.toString.call(target) === "[object RegExp]";
@@ -1511,9 +1237,9 @@ class CrossWindow {
   /**
    * Provides basic prototype string type checking if `target` is a Set.
    *
-   * @param {unknown}  target - A potential Set to test.
+   * @param target - A potential Set to test.
    *
-   * @returns {target is Set} Is `target` a Set.
+   * @returns Is `target` a Set.
    */
   static isSet(target) {
     return isObject(target) && Object.prototype.toString.call(target) === "[object Set]";
@@ -1521,9 +1247,9 @@ class CrossWindow {
   /**
    * Provides basic prototype string type checking if `target` is a URL.
    *
-   * @param {unknown}  target - A potential URL to test.
+   * @param target - A potential URL to test.
    *
-   * @returns {target is URL} Is `target` a URL.
+   * @returns Is `target` a URL.
    */
   static isURL(target) {
     return isObject(target) && Object.prototype.toString.call(target) === "[object URL]";
@@ -1531,9 +1257,9 @@ class CrossWindow {
   /**
    * Provides basic prototype string type checking if `target` is a Window.
    *
-   * @param {unknown}  target - A potential Window to test.
+   * @param target - A potential Window to test.
    *
-   * @returns {target is Window} Is `target` a Window.
+   * @returns Is `target` a Window.
    */
   static isWindow(target) {
     return isObject(target) && Object.prototype.toString.call(target) === "[object Window]";
@@ -1543,9 +1269,9 @@ class CrossWindow {
    * Ensures that the given target is an `instanceof` all known DOM elements that are focusable. Please note that
    * additional checks are required regarding focusable state; use {@link A11yHelper.isFocusable} for a complete check.
    *
-   * @param {unknown}  target - Target to test for `instanceof` focusable HTML element.
+   * @param target - Target to test for `instanceof` focusable HTML element.
    *
-   * @returns {boolean} Is target an `instanceof` a focusable DOM element.
+   * @returns Is target an `instanceof` a focusable DOM element.
    */
   static isFocusableHTMLElement(target) {
     for (let cntr = this.#FocusableElementClassNames.length; --cntr >= 0; ) {
@@ -1558,9 +1284,9 @@ class CrossWindow {
   /**
    * Provides precise type checking if `target` is a DocumentFragment.
    *
-   * @param {unknown}  target - A potential DocumentFragment to test.
+   * @param target - A potential DocumentFragment to test.
    *
-   * @returns {target is DocumentFragment} Is `target` a DocumentFragment.
+   * @returns Is `target` a DocumentFragment.
    */
   static isDocumentFragment(target) {
     return this.#checkDOMInstanceType(target, Node.DOCUMENT_FRAGMENT_NODE, "DocumentFragment");
@@ -1568,9 +1294,9 @@ class CrossWindow {
   /**
    * Provides precise type checking if `target` is an Element.
    *
-   * @param {unknown}  target - A potential Element to test.
+   * @param target - A potential Element to test.
    *
-   * @returns {target is Element} Is `target` an Element.
+   * @returns Is `target` an Element.
    */
   static isElement(target) {
     return this.#checkDOMInstanceType(target, Node.ELEMENT_NODE, "Element");
@@ -1578,19 +1304,19 @@ class CrossWindow {
   /**
    * Provides precise type checking if `target` is a HTMLAnchorElement.
    *
-   * @param {unknown}  target - A potential HTMLAnchorElement to test.
+   * @param target - A potential HTMLAnchorElement to test.
    *
-   * @returns {target is HTMLAnchorElement} Is `target` a HTMLAnchorElement.
+   * @returns Is `target` a HTMLAnchorElement.
    */
   static isHTMLAnchorElement(target) {
     return this.#checkDOMInstanceType(target, Node.ELEMENT_NODE, "HTMLAnchorElement");
   }
   /**
-   * Provides precise type checking if `target` is a HTMLElement.
+   * Provides precise type checking if `target` is an HTMLElement.
    *
-   * @param {unknown}  target - A potential HTMLElement to test.
+   * @param target - A potential HTMLElement to test.
    *
-   * @returns {target is HTMLElement} Is `target` a HTMLElement.
+   * @returns Is `target` a HTMLElement.
    */
   static isHTMLElement(target) {
     return this.#checkDOMInstanceType(target, Node.ELEMENT_NODE, "HTMLElement");
@@ -1598,9 +1324,9 @@ class CrossWindow {
   /**
    * Provides precise type checking if `target` is a Node.
    *
-   * @param {unknown}  target - A potential Node to test.
+   * @param target - A potential Node to test.
    *
-   * @returns {target is Node} Is `target` a DOM Node.
+   * @returns Is `target` a DOM Node.
    */
   static isNode(target) {
     if (typeof target?.nodeType !== "number") {
@@ -1616,9 +1342,9 @@ class CrossWindow {
   /**
    * Provides precise type checking if `target` is a ShadowRoot.
    *
-   * @param {unknown}  target - A potential ShadowRoot to test.
+   * @param target - A potential ShadowRoot to test.
    *
-   * @returns {target is ShadowRoot} Is `target` a ShadowRoot.
+   * @returns Is `target` a ShadowRoot.
    */
   static isShadowRoot(target) {
     return this.#checkDOMInstanceType(target, Node.DOCUMENT_FRAGMENT_NODE, "ShadowRoot");
@@ -1626,9 +1352,9 @@ class CrossWindow {
   /**
    * Provides precise type checking if `target` is a SVGElement.
    *
-   * @param {unknown}  target - A potential SVGElement to test.
+   * @param target - A potential SVGElement to test.
    *
-   * @returns {target is SVGElement} Is `target` a SVGElement.
+   * @returns Is `target` a SVGElement.
    */
   static isSVGElement(target) {
     return this.#checkDOMInstanceType(target, Node.ELEMENT_NODE, "SVGElement");
@@ -1637,11 +1363,11 @@ class CrossWindow {
   /**
    * Provides basic duck type checking for `Event` signature and optional constructor name(s).
    *
-   * @param {unknown}  target - A potential DOM event to test.
+   * @param target - A potential DOM event to test.
    *
-   * @param {string | Set<string>} [types] Specific constructor name or Set of constructor names to match.
+   * @param [types] Specific constructor name or Set of constructor names to match.
    *
-   * @returns {target is Event} Is `target` an Event with optional constructor name check.
+   * @returns Is `target` an Event with optional constructor name check.
    */
   static isEvent(target, types) {
     if (typeof target?.type !== "string" || typeof target?.defaultPrevented !== "boolean" || typeof target?.stopPropagation !== "function") {
@@ -1653,9 +1379,9 @@ class CrossWindow {
    * Provides basic duck type checking for `Event` signature for standard mouse / pointer events including
    * `MouseEvent` and `PointerEvent`.
    *
-   * @param {unknown}  target - A potential DOM event to test.
+   * @param target - A potential DOM event to test.
    *
-   * @returns {target is PointerEvent} Is `target` a MouseEvent or PointerEvent.
+   * @returns Is `target` a MouseEvent or PointerEvent.
    */
   static isPointerEvent(target) {
     return this.isEvent(target, this.#PointerEventSet);
@@ -1663,9 +1389,9 @@ class CrossWindow {
   /**
    * Provides basic duck type checking for `Event` signature for all UI events.
    *
-   * @param {unknown}  target - A potential DOM event to test.
+   * @param target - A potential DOM event to test.
    *
-   * @returns {target is UIEvent} Is `target` a UIEvent.
+   * @returns Is `target` a UIEvent.
    * @see https://developer.mozilla.org/en-US/docs/Web/API/UIEvent
    */
   static isUIEvent(target) {
@@ -1675,10 +1401,9 @@ class CrossWindow {
    * Provides basic duck type checking for `Event` signature for standard user input events including `KeyboardEvent`,
    * `MouseEvent`, and `PointerEvent`.
    *
-   * @param {unknown}  target - A potential DOM event to test.
+   * @param target - A potential DOM event to test.
    *
-   * @returns {target is KeyboardEvent | MouseEvent | PointerEvent} Is `target` a Keyboard, MouseEvent, or
-   *          PointerEvent.
+   * @returns Is `target` a Keyboard, MouseEvent, or PointerEvent.
    */
   static isUserInputEvent(target) {
     return this.isEvent(target, this.#UserInputEventSet);
@@ -1688,11 +1413,11 @@ class CrossWindow {
    * Provides basic type checking by constructor name(s) for objects. This can be useful when checking multiple
    * constructor names against a provided Set.
    *
-   * @param {unknown}  target - Object to test for constructor name.
+   * @param target - Object to test for constructor name.
    *
-   * @param {string | Set<string>} types Specific constructor name or Set of constructor names to match.
+   * @param types Specific constructor name or Set of constructor names to match.
    *
-   * @returns {boolean} Does the provided object constructor name match the types provided.
+   * @returns Does the provided object constructor name match the types provided.
    */
   static isCtorName(target, types) {
     if (!isObject(target)) {
@@ -1703,18 +1428,33 @@ class CrossWindow {
     }
     return !!types?.has(target?.constructor?.name);
   }
+  // Errors ---------------------------------------------------------------------------------------------------------
+  /**
+   * Provides basic duck type checking and error name for {@link DOMException}.
+   *
+   * @param target - Error to duck type test.
+   *
+   * @param name - Specific error name.
+   *
+   * @returns Is target a DOMException matching the error name.
+   *
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/DOMException#error_names
+   */
+  static isDOMException(target, name) {
+    return isObject(target) && Object.prototype.toString.call(target) === "[object DOMException]" && target.name === name;
+  }
   // Internal implementation ----------------------------------------------------------------------------------------
   /**
    * Internal generic DOM `instanceof` check. First will attempt to find the class name by `globalThis` falling back
    * to the {@link Window} associated with the DOM node.
    *
-   * @param {unknown}  target - Target to test.
+   * @param target - Target to test.
    *
-   * @param {number}   nodeType - Node type constant.
+   * @param nodeType - Node type constant.
    *
-   * @param {string}   className - DOM class name for instanceof check.
+   * @param className - DOM classname for instanceof check.
    *
-   * @returns {boolean} Is the target the given nodeType and instance of class name.
+   * @returns Is the target the given nodeType and instance of class name.
    */
   static #checkDOMInstanceType(target, nodeType, className) {
     if (!isObject(target)) {
@@ -1723,358 +1463,217 @@ class CrossWindow {
     if (target.nodeType !== nodeType) {
       return false;
     }
-    const GlobalClass = globalThis[className];
+    const GlobalClass = window[className];
     if (GlobalClass && target instanceof GlobalClass) {
       return true;
     }
-    const activeWindow = this.#NodesWithOwnerDocument.has(target.nodeType) ? target?.ownerDocument?.defaultView : this.getWindow(target, this.#optionsInternalCheckDOM);
+    const activeWindow = this.#hasOwnerDocument(target) ? target?.ownerDocument?.defaultView : (
+      // @ts-ignore: Safe in this context.
+      this.getWindow(target, this.#optionsInternalCheckDOM)
+    );
     const TargetClass = activeWindow?.[className];
     return TargetClass && target instanceof TargetClass;
   }
+  static #hasOwnerDocument(target) {
+    return typeof target === "object" && target !== null && this.#NodesWithOwnerDocument.has(target?.nodeType);
+  }
 }
-class ResizeObserverManager {
-  /** @type {Map<HTMLElement, import('./types-local').ResizeObserverSubscriber[]>} */
-  #elMap = /* @__PURE__ */ new Map();
-  /** @type {ResizeObserver} */
-  #resizeObserver;
+class URLParser {
   /**
-   * Defines the various shape / update type of the given target.
-   *
-   * @type {{ [key: string]: number }}
+   * @private
    */
-  static #updateTypes = Object.freeze({
-    none: 0,
-    attribute: 1,
-    function: 2,
-    resizeObserved: 3,
-    setContentBounds: 4,
-    setDimension: 5,
-    storeObject: 6,
-    storesObject: 7
-  });
   constructor() {
-    this.#resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const subscribers = this.#elMap.get(entry?.target);
-        if (Array.isArray(subscribers)) {
-          const contentWidth = entry.contentRect.width;
-          const contentHeight = entry.contentRect.height;
-          for (const subscriber of subscribers) {
-            ResizeObserverManager.#updateSubscriber(subscriber, contentWidth, contentHeight);
-          }
-        }
-      }
-    });
+    throw new Error("URLParser constructor: This is a static class and should not be constructed.");
   }
   /**
-   * Add an {@link HTMLElement} and {@link ResizeObserverData.ResizeTarget} instance for monitoring. Create cached
-   * style attributes for the given element include border & padding dimensions for offset width / height calculations.
+   * Parses a URL string converting it to a fully qualified URL. If URL is an existing URL instance, it is returned
+   * immediately. Optionally, you may construct a fully qualified URL from a relative base origin / path or with a
+   * route prefix added to the current location origin.
    *
-   * @param {HTMLElement}    el - The element to observe.
+   * @param options - Options.
    *
-   * @param {import('./types').ResizeObserverData.ResizeTarget} target - A target that contains one of several
-   *        mechanisms for updating resize data.
+   * @param options.url - URL string to convert to a URL.
+   *
+   * @param [options.base] - Optional fully qualified base path for relative URL construction.
+   *
+   * @param [options.routePrefix] - Optional route prefix to add to location origin for absolute URL strings
+   *        when `base` is not defined.
+   *
+   * @returns Parsed URL or null if `url` is not parsed.
    */
-  add(el, target) {
-    if (!CrossWindow.isHTMLElement(el)) {
-      throw new TypeError(`ResizeObserverManager.add error: 'el' is not a HTMLElement.`);
+  static parse({ url, base, routePrefix }) {
+    if (CrossWindow.isURL(url)) {
+      return url;
     }
-    if (this.#hasTarget(el, target)) {
-      return;
+    if (typeof url !== "string") {
+      return null;
     }
-    const updateType = ResizeObserverManager.#getUpdateType(target);
-    if (updateType === 0) {
-      throw new Error(`ResizeObserverManager.add error: 'target' is not a valid ResizeObserverManager target.`);
+    if (base !== void 0 && typeof base !== "string") {
+      return null;
     }
-    const computed = globalThis.getComputedStyle(el);
-    const borderBottom = StyleParse.pixels(el.style.borderBottom) ?? StyleParse.pixels(computed.borderBottom) ?? 0;
-    const borderLeft = StyleParse.pixels(el.style.borderLeft) ?? StyleParse.pixels(computed.borderLeft) ?? 0;
-    const borderRight = StyleParse.pixels(el.style.borderRight) ?? StyleParse.pixels(computed.borderRight) ?? 0;
-    const borderTop = StyleParse.pixels(el.style.borderTop) ?? StyleParse.pixels(computed.borderTop) ?? 0;
-    const paddingBottom = StyleParse.pixels(el.style.paddingBottom) ?? StyleParse.pixels(computed.paddingBottom) ?? 0;
-    const paddingLeft = StyleParse.pixels(el.style.paddingLeft) ?? StyleParse.pixels(computed.paddingLeft) ?? 0;
-    const paddingRight = StyleParse.pixels(el.style.paddingRight) ?? StyleParse.pixels(computed.paddingRight) ?? 0;
-    const paddingTop = StyleParse.pixels(el.style.paddingTop) ?? StyleParse.pixels(computed.paddingTop) ?? 0;
-    const data = {
-      updateType,
-      target,
-      // Stores most recent contentRect.width and contentRect.height values from ResizeObserver.
-      contentWidth: 0,
-      contentHeight: 0,
-      // Convenience data for total border & padding for offset width & height calculations.
-      styles: {
-        additionalWidth: borderLeft + borderRight + paddingLeft + paddingRight,
-        additionalHeight: borderTop + borderBottom + paddingTop + paddingBottom
-      }
-    };
-    if (this.#elMap.has(el)) {
-      const subscribers = this.#elMap.get(el);
-      subscribers.push(data);
+    if (routePrefix !== void 0 && typeof routePrefix !== "string") {
+      return null;
+    }
+    const targetURL = this.#createURL(url);
+    if (targetURL) {
+      return targetURL;
+    }
+    let targetBase;
+    if (url.startsWith("./") || url.startsWith("../")) {
+      targetBase = base ? base : `${globalThis.location.origin}${globalThis.location.pathname}`;
     } else {
-      this.#elMap.set(el, [data]);
-    }
-    this.#resizeObserver.observe(el);
-  }
-  /**
-   * Clears and unobserves all currently tracked elements and managed targets.
-   */
-  clear() {
-    for (const el of this.#elMap.keys()) {
-      this.#resizeObserver.unobserve(el);
-    }
-    this.#elMap.clear();
-  }
-  /**
-   * Removes all {@link ResizeObserverData.ResizeTarget} instances for the given element from monitoring when just an
-   * element is provided otherwise removes a specific target from the monitoring map. If no more targets remain then
-   * the element is removed from monitoring.
-   *
-   * @param {HTMLElement} el - Element to remove from monitoring.
-   *
-   * @param {import('./types').ResizeObserverData.ResizeTarget} [target] - A specific target to remove from monitoring.
-   */
-  remove(el, target = void 0) {
-    const subscribers = this.#elMap.get(el);
-    if (Array.isArray(subscribers)) {
-      if (target !== void 0) {
-        const index = subscribers.findIndex((entry) => entry.target === target);
-        if (index >= 0) {
-          subscribers.splice(index, 1);
-        }
-      } else {
-        subscribers.length = 0;
+      let targetRoutePrefix = "";
+      if (routePrefix) {
+        targetRoutePrefix = routePrefix.startsWith("/") ? routePrefix : `/${routePrefix}`;
+        targetRoutePrefix = targetRoutePrefix.endsWith("/") ? targetRoutePrefix : `${targetRoutePrefix}/`;
       }
-      if (subscribers.length === 0) {
-        this.#elMap.delete(el);
-        this.#resizeObserver.unobserve(el);
-      }
+      targetBase = `${globalThis.location.origin}${targetRoutePrefix}`;
     }
-  }
-  /**
-   * Provides a function that when invoked with an element updates the cached styles for each subscriber of the
-   * element.
-   *
-   * The style attributes cached to calculate offset height / width include border & padding dimensions. You only need
-   * to update the cache if you change border or padding attributes of the element.
-   *
-   * @param {HTMLElement} el - A HTML element.
-   */
-  updateCache(el) {
-    const subscribers = this.#elMap.get(el);
-    if (Array.isArray(subscribers)) {
-      const computed = globalThis.getComputedStyle(el);
-      const borderBottom = StyleParse.pixels(el.style.borderBottom) ?? StyleParse.pixels(computed.borderBottom) ?? 0;
-      const borderLeft = StyleParse.pixels(el.style.borderLeft) ?? StyleParse.pixels(computed.borderLeft) ?? 0;
-      const borderRight = StyleParse.pixels(el.style.borderRight) ?? StyleParse.pixels(computed.borderRight) ?? 0;
-      const borderTop = StyleParse.pixels(el.style.borderTop) ?? StyleParse.pixels(computed.borderTop) ?? 0;
-      const paddingBottom = StyleParse.pixels(el.style.paddingBottom) ?? StyleParse.pixels(computed.paddingBottom) ?? 0;
-      const paddingLeft = StyleParse.pixels(el.style.paddingLeft) ?? StyleParse.pixels(computed.paddingLeft) ?? 0;
-      const paddingRight = StyleParse.pixels(el.style.paddingRight) ?? StyleParse.pixels(computed.paddingRight) ?? 0;
-      const paddingTop = StyleParse.pixels(el.style.paddingTop) ?? StyleParse.pixels(computed.paddingTop) ?? 0;
-      const additionalWidth = borderLeft + borderRight + paddingLeft + paddingRight;
-      const additionalHeight = borderTop + borderBottom + paddingTop + paddingBottom;
-      for (const subscriber of subscribers) {
-        subscriber.styles.additionalWidth = additionalWidth;
-        subscriber.styles.additionalHeight = additionalHeight;
-        ResizeObserverManager.#updateSubscriber(subscriber, subscriber.contentWidth, subscriber.contentHeight);
-      }
-    }
+    return this.#createURL(url, targetBase);
   }
   // Internal implementation ----------------------------------------------------------------------------------------
   /**
-   * Determines the shape of the target instance regarding valid update mechanisms to set width & height changes.
+   * Helper to create a URL and catch any exception. Useful until `URL.parse` and `URL.canParse` are more widespread.
    *
-   * @param {import('./types').ResizeObserverData.ResizeTarget}  target - The target instance.
+   * @param url - URL string.
    *
-   * @returns {number} Update type value.
+   * @param base - Base origin / path.
+   *
+   * @returns Valid URL or null.
    */
-  static #getUpdateType(target) {
-    if (typeof target?.resizeObserved === "function") {
-      return this.#updateTypes.resizeObserved;
+  static #createURL(url, base = "") {
+    try {
+      return new URL(url, base);
+    } catch (err) {
+      return null;
     }
-    if (typeof target?.setDimension === "function") {
-      return this.#updateTypes.setDimension;
-    }
-    if (typeof target?.setContentBounds === "function") {
-      return this.#updateTypes.setContentBounds;
-    }
-    const targetType = typeof target;
-    if (targetType !== null && (targetType === "object" || targetType === "function")) {
-      if (isWritableStore(target.resizeObserved)) {
-        return this.#updateTypes.storeObject;
-      }
-      const stores = target?.stores;
-      if (isObject(stores) || typeof stores === "function") {
-        if (isWritableStore(stores.resizeObserved)) {
-          return this.#updateTypes.storesObject;
-        }
-      }
-    }
-    if (targetType !== null && targetType === "object") {
-      return this.#updateTypes.attribute;
-    }
-    if (targetType === "function") {
-      return this.#updateTypes.function;
-    }
-    return this.#updateTypes.none;
+  }
+}
+class AssetValidator {
+  /** Default media types. */
+  static #mediaTypes = Object.freeze({
+    all: Frozen.Set(["audio", "img", "svg", "video"]),
+    audio: Frozen.Set(["audio"]),
+    img: Frozen.Set(["img"]),
+    img_svg: Frozen.Set(["img", "svg"]),
+    img_svg_video: Frozen.Set(["img", "svg", "video"]),
+    video: Frozen.Set(["video"])
+  });
+  /** Supported audio extensions. */
+  static #audioExtensions = /* @__PURE__ */ new Set(["mp3", "wav", "ogg", "aac", "flac", "webm"]);
+  /** Supported image extensions. */
+  static #imageExtensions = /* @__PURE__ */ new Set(["jpg", "jpeg", "png", "gif", "bmp", "svg", "webp"]);
+  /** Supported SVG extensions. */
+  static #svgExtensions = /* @__PURE__ */ new Set(["svg"]);
+  /** Supported video extensions. */
+  static #videoExtensions = /* @__PURE__ */ new Set(["mp4", "webm", "ogg"]);
+  /**
+   * @private
+   */
+  constructor() {
+    throw new Error("AssetValidator constructor: This is a static class and should not be constructed.");
   }
   /**
-   * Determines if a given element and target is already being observed.
-   *
-   * @param {HTMLElement} el - A HTMLElement.
-   *
-   * @param {import('./types').ResizeObserverData.ResizeTarget} [target] - A specific target to find.
-   *
-   * @returns {boolean} Whether the target is already being tracked for the given element.
+   * Provides several readonly default media type Sets useful for the `mediaTypes` option.
    */
-  #hasTarget(el, target) {
-    if (target === void 0 || target === null) {
-      return false;
-    }
-    const subscribers = this.#elMap.get(el);
-    if (Array.isArray(subscribers)) {
-      return subscribers.findIndex((entry) => entry.target === target) >= 0;
-    }
-    return false;
+  static get MediaTypes() {
+    return this.#mediaTypes;
   }
   /**
-   * Updates a subscriber target with given content width & height values. Offset width & height is calculated from
-   * the content values + cached styles.
+   * Parses the provided file path to determine the media type and validity based on the file extension. Certain
+   * extensions can be excluded in addition to filtering by specified media types.
    *
-   * @param {import('./types-local').ResizeObserverSubscriber} subscriber - Internal data about subscriber.
+   * @param options - Options.
    *
-   * @param {number|undefined}  contentWidth - ResizeObserver `contentRect.width` value or undefined.
+   * @returns The parsed asset information containing the file path, extension, element type, and whether the parsing
+   *          is valid for the file extension is supported and not excluded.
    *
-   * @param {number|undefined}  contentHeight - ResizeObserver `contentRect.height` value or undefined.
+   * @throws {TypeError} If the provided `url` is not a string or URL, `routePrefix` is not a string,
+   *         `exclude` is not a Set, or `mediaTypes` is not a Set.
    */
-  static #updateSubscriber(subscriber, contentWidth, contentHeight) {
-    const styles = subscriber.styles;
-    subscriber.contentWidth = contentWidth;
-    subscriber.contentHeight = contentHeight;
-    const offsetWidth = Number.isFinite(contentWidth) ? contentWidth + styles.additionalWidth : void 0;
-    const offsetHeight = Number.isFinite(contentHeight) ? contentHeight + styles.additionalHeight : void 0;
-    const target = subscriber.target;
-    switch (subscriber.updateType) {
-      case this.#updateTypes.attribute:
-        target.contentWidth = contentWidth;
-        target.contentHeight = contentHeight;
-        target.offsetWidth = offsetWidth;
-        target.offsetHeight = offsetHeight;
-        break;
-      case this.#updateTypes.function:
-        target?.(offsetWidth, offsetHeight, contentWidth, contentHeight);
-        break;
-      case this.#updateTypes.resizeObserved:
-        target.resizeObserved?.(offsetWidth, offsetHeight, contentWidth, contentHeight);
-        break;
-      case this.#updateTypes.setContentBounds:
-        target.setContentBounds?.(contentWidth, contentHeight);
-        break;
-      case this.#updateTypes.setDimension:
-        target.setDimension?.(offsetWidth, offsetHeight);
-        break;
-      case this.#updateTypes.storeObject:
-        target.resizeObserved.update((object) => {
-          object.contentHeight = contentHeight;
-          object.contentWidth = contentWidth;
-          object.offsetHeight = offsetHeight;
-          object.offsetWidth = offsetWidth;
-          return object;
-        });
-        break;
-      case this.#updateTypes.storesObject:
-        target.stores.resizeObserved.update((object) => {
-          object.contentHeight = contentHeight;
-          object.contentWidth = contentWidth;
-          object.offsetHeight = offsetHeight;
-          object.offsetWidth = offsetWidth;
-          return object;
-        });
-        break;
+  static parseMedia({ url, routePrefix, exclude, mediaTypes = this.#mediaTypes.all, raiseException = false }) {
+    const throws = typeof raiseException === "boolean" ? raiseException : true;
+    if (typeof url !== "string" && !CrossWindow.isURL(url)) {
+      if (throws) {
+        throw new TypeError(`'url' is not a string or URL instance.`);
+      } else {
+        return { url, valid: false };
+      }
     }
+    if (routePrefix !== void 0 && typeof routePrefix !== "string") {
+      if (throws) {
+        throw new TypeError(`'routePrefix' is not a string.`);
+      } else {
+        return { url, valid: false };
+      }
+    }
+    if (exclude !== void 0 && !CrossWindow.isSet(exclude)) {
+      if (throws) {
+        throw new TypeError(`'exclude' is not a Set.`);
+      } else {
+        return { url, valid: false };
+      }
+    }
+    if (!CrossWindow.isSet(mediaTypes)) {
+      if (throws) {
+        throw new TypeError(`'mediaTypes' is not a Set.`);
+      } else {
+        return { url, valid: false };
+      }
+    }
+    const targetURL = typeof url === "string" ? URLParser.parse({ url, routePrefix }) : url;
+    if (!targetURL) {
+      if (throws) {
+        throw new TypeError(`'url' is invalid.`);
+      } else {
+        return { url, valid: false };
+      }
+    }
+    const extensionMatch = targetURL.pathname.match(/\.([a-zA-Z0-9]+)$/);
+    const extension = extensionMatch ? extensionMatch[1].toLowerCase() : void 0;
+    const isExcluded = extension && CrossWindow.isSet(exclude) ? exclude.has(extension) : false;
+    let elementType = void 0;
+    let valid = false;
+    if (extension && !isExcluded) {
+      if (this.#svgExtensions.has(extension) && mediaTypes.has("svg")) {
+        elementType = "svg";
+        valid = true;
+      } else if (this.#imageExtensions.has(extension) && mediaTypes.has("img")) {
+        elementType = "img";
+        valid = true;
+      } else if (this.#videoExtensions.has(extension) && mediaTypes.has("video")) {
+        elementType = "video";
+        valid = true;
+      } else if (this.#audioExtensions.has(extension) && mediaTypes.has("audio")) {
+        elementType = "audio";
+        valid = true;
+      }
+    }
+    return valid ? {
+      src: url,
+      url: targetURL,
+      extension,
+      elementType,
+      valid
+    } : { url, valid: false };
   }
 }
-const resizeObserverActionManager = new ResizeObserverManager();
-function resizeObserver(node, target) {
-  resizeObserverActionManager.add(node, target);
-  return {
-    /**
-     * @param {import('#runtime/util/dom/observer').ResizeObserverData.ResizeTarget} newTarget - A
-     *        {@link ResizeObserverManager} target to update with observed width & height changes.
-     */
-    update: (newTarget) => {
-      resizeObserverActionManager.remove(node, target);
-      target = newTarget;
-      resizeObserverActionManager.add(node, target);
-    },
-    destroy: () => {
-      resizeObserverActionManager.remove(node, target);
-    }
-  };
-}
-resizeObserver.updateCache = function(el) {
-  resizeObserverActionManager.updateCache(el);
-};
-function applyStyles(node, properties) {
-  function setProperties() {
-    if (!isObject(properties)) {
-      return;
-    }
-    for (const prop of Object.keys(properties)) {
-      node.style.setProperty(`${prop}`, properties[prop]);
-    }
+Object.freeze(AssetValidator);
+class BrowserSupports {
+  /**
+   * @private
+   */
+  constructor() {
+    throw new Error("BrowserSupports constructor: This is a static class and should not be constructed.");
   }
-  setProperties();
-  return {
-    /**
-     * @param {{ [key: string]: string | null }}  newProperties - Key / value object of properties to set.
-     */
-    update: (newProperties) => {
-      properties = newProperties;
-      setProperties();
-    }
-  };
-}
-function dynamicAction(node, { action, data } = {}) {
-  let actionResult;
-  if (typeof action === "function") {
-    actionResult = action(node, data);
+  /**
+   * Check for container query support.
+   *
+   * @returns True if container queries supported.
+   */
+  static get containerQueries() {
+    return "container" in document.documentElement.style;
   }
-  return {
-    /**
-     * @param {import('./types').DynamicActionOptions} newOptions - Defines the new action to dynamically mount.
-     */
-    update: (newOptions) => {
-      if (!isObject(newOptions)) {
-        actionResult?.destroy?.();
-        action = void 0;
-        data = void 0;
-        return;
-      }
-      const { action: newAction, data: newData } = newOptions;
-      if (typeof newAction !== "function") {
-        console.warn(`dynamicAction.update warning: Aborting as 'action' is not a function.`);
-        return;
-      }
-      const hasNewData = newData !== data;
-      if (hasNewData) {
-        data = newData;
-      }
-      if (newAction !== action) {
-        actionResult?.destroy?.();
-        action = newAction;
-        actionResult = action(node, data);
-      } else if (hasNewData) {
-        actionResult?.update?.(data);
-      }
-    },
-    destroy: () => {
-      actionResult?.destroy?.();
-      action = void 0;
-      data = void 0;
-      actionResult = void 0;
-    }
-  };
 }
 const subscriber_queue = [];
 function readable(value, start) {
@@ -2170,6 +1769,275 @@ function derived(stores, fn, initial_value) {
       started = false;
     };
   });
+}
+class ThemeObserver {
+  /**
+   * All readable theme stores.
+   *
+   * @type {Readonly<({
+   *    themeName: Readonly<import('svelte/store').Readable<string>>
+   *    themeToken: Readonly<import('svelte/store').Readable<string>>
+   * })>}
+   */
+  static #stores;
+  /**
+   * Internal setter for theme stores.
+   *
+   * @type {{ themeName: Function, themeToken: Function }}
+   */
+  static #storeSet;
+  /**
+   * Current theme name.
+   *
+   * @type {string}
+   */
+  static #themeName = "";
+  /**
+   * Current theme token.
+   *
+   * @type {string}
+   */
+  static #themeToken = "";
+  /**
+   * @hideconstructor
+   */
+  constructor() {
+    throw new Error("ThemeObserver constructor: This is a static class and should not be constructed.");
+  }
+  /**
+   * @returns {Readonly<({
+   *    themeName: Readonly<import('svelte/store').Readable<string>>
+   *    themeToken: Readonly<import('svelte/store').Readable<string>>
+   * })>} Current platform theme stores.
+   */
+  static get stores() {
+    return this.#stores;
+  }
+  /**
+   * @returns {string} Current theme name; may be different from the theme token.
+   */
+  static get themeName() {
+    return this.#themeName;
+  }
+  /**
+   * @returns {string} Current theme token - CSS class.
+   */
+  static get themeToken() {
+    return this.#themeToken;
+  }
+  /**
+   * Verify that the given `theme` name or token (CSS class) is the current platform theme.
+   *
+   * @param {string} theme - A theme name or token to verify.
+   *
+   * @returns {boolean} If the requested theme matches the current platform theme.
+   */
+  static isTheme(theme) {
+    return typeof theme === "string" && (this.#themeName === theme || this.#themeToken === theme);
+  }
+  /**
+   * Detect if theming tokens (CSS classes) are present in the given iterable list.
+   *
+   * @param {Iterable<string>}  tokens - a token list to verify if any theming tokens are included.
+   *
+   * @param {object} [options] - Optional parameters.
+   *
+   * @param {boolean} [options.strict=false] - When true, all theming tokens required if multiple are verified.
+   *
+   * @returns {boolean} True if theming tokens present.
+   */
+  static hasThemedTokens(tokens, { strict = false } = {}) {
+    if (!isIterable(tokens)) {
+      return false;
+    }
+    let strictFound = !strict;
+    let themeFound = false;
+    for (const entry of tokens) {
+      if (typeof entry !== "string") {
+        continue;
+      }
+      if (entry.startsWith("theme-")) {
+        themeFound = true;
+      }
+      if (entry === "themed") {
+        strictFound = true;
+      }
+    }
+    return themeFound && strictFound;
+  }
+  /**
+   * Initialize `document.body` theme observation.
+   *
+   * @internal
+   */
+  static initialize() {
+    if (this.#stores !== void 0) {
+      return;
+    }
+    const themeName = writable(this.#themeName);
+    const themeToken = writable(this.#themeToken);
+    this.#stores = Object.freeze({
+      themeName: Object.freeze({ subscribe: themeName.subscribe }),
+      themeToken: Object.freeze({ subscribe: themeToken.subscribe })
+    });
+    this.#storeSet = {
+      themeName: themeName.set,
+      themeToken: themeToken.set
+    };
+    const observer = new MutationObserver(() => {
+      if (document.body.classList.contains("theme-light")) {
+        this.#themeName = "light";
+        this.#themeToken = "theme-light";
+      } else if (document.body.classList.contains("theme-dark")) {
+        this.#themeName = "dark";
+        this.#themeToken = "theme-dark";
+      }
+      this.#storeSet.themeName(this.#themeName);
+      this.#storeSet.themeToken(this.#themeToken);
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  }
+  /**
+   * Determine the nearest theme tokens (CSS classes) from the given element.
+   *
+   * @param {object} options - Required options.
+   *
+   * @param {Element | EventTarget} options.element - A DOM element.
+   *
+   * @param {Set<string>} [options.output] - An optional source Set of existing tokens.
+   *
+   * @param {boolean} [options.override=true] - When true, override any existing theme tokens.
+   *
+   * @param {boolean} [options.strict=false] - When true, ensure all required theming tokens in output.
+   *
+   * @returns {Iterable<string>} Any theming tokens found from the given element.
+   */
+  static nearestThemedTokens({ element: element2, output = /* @__PURE__ */ new Set(), override = true, strict = false }) {
+    if (!CrossWindow.isSet(output)) {
+      throw new TypeError(`'output' is not a Set.`);
+    }
+    if (!CrossWindow.isElement(element2)) {
+      return output;
+    }
+    if (!override && ThemeObserver.hasThemedTokens(output)) {
+      if (strict) {
+        output.add("themed");
+      }
+      return output;
+    }
+    const nearestThemed = element2.closest(".themed") ?? CrossWindow.getDocument(element2).body;
+    const match = nearestThemed.className.match(/(?:^|\s)(theme-\w+)/);
+    if (match) {
+      output.add("themed");
+      output.add(match[1]);
+    }
+    return output;
+  }
+}
+function isWritableStore(store) {
+  if (store === null || store === void 0) {
+    return false;
+  }
+  switch (typeof store) {
+    case "function":
+    case "object":
+      return typeof store.subscribe === "function" && typeof store.set === "function" && typeof store.update === "function";
+  }
+  return false;
+}
+function subscribeIgnoreFirst(store, update2) {
+  let firedFirst = false;
+  return store.subscribe((value) => {
+    if (!firedFirst) {
+      firedFirst = true;
+    } else {
+      update2(value);
+    }
+  });
+}
+class SvelteSet extends Set {
+  /**
+   * Stores the subscribers.
+   */
+  #subscribers = [];
+  constructor(entries) {
+    super();
+    if (entries !== void 0 && !isIterable(entries)) {
+      throw new TypeError(`'entries' must be an iterable list.`);
+    }
+    if (entries) {
+      for (const entry of entries) {
+        super.add(entry);
+      }
+    }
+  }
+  /**
+   * Appends a new element with a specified value to the end of the Set.
+   *
+   * @param value - Value to add.
+   *
+   * @returns This instance.
+   */
+  add(value) {
+    const hasValue = super.has(value);
+    super.add(value);
+    if (!hasValue) {
+      this.#updateSubscribers();
+    }
+    return this;
+  }
+  /**
+   * Clears this set.
+   */
+  clear() {
+    if (this.size === 0) {
+      return;
+    }
+    super.clear();
+    this.#updateSubscribers();
+  }
+  /**
+   * Removes a specified value from the Set.
+   *
+   * @param value - Value to delete.
+   *
+   * @returns Returns true if an element in the Set existed and has been removed, or false if the element
+   *          does not exist.
+   */
+  delete(value) {
+    const result = super.delete(value);
+    if (result) {
+      this.#updateSubscribers();
+    }
+    return result;
+  }
+  // Store subscriber implementation --------------------------------------------------------------------------------
+  /**
+   * @param handler - Callback function that is invoked on update / changes.
+   *
+   * @returns Unsubscribe function.
+   */
+  subscribe(handler) {
+    const currentIdx = this.#subscribers.findIndex((sub) => sub === handler);
+    if (currentIdx === -1) {
+      this.#subscribers.push(handler);
+      handler(this);
+    }
+    return () => {
+      const index = this.#subscribers.findIndex((sub) => sub === handler);
+      if (index >= 0) {
+        this.#subscribers.splice(index, 1);
+      }
+    };
+  }
+  /**
+   * Updates subscribers.
+   */
+  #updateSubscribers() {
+    for (let cntr = 0; cntr < this.#subscribers.length; cntr++) {
+      this.#subscribers[cntr](this);
+    }
+  }
 }
 function storeGenerator({ storage, serialize = JSON.stringify, deserialize = JSON.parse }) {
   function isSimpleDeriver(deriver) {
@@ -2886,6 +2754,1896 @@ class TJSSvelte {
   }
 }
 Object.seal(TJSSvelte);
+const semver = /^[v^~<>=]*?(\d+)(?:\.([x*]|\d+)(?:\.([x*]|\d+)(?:\.([x*]|\d+))?(?:-([\da-z\-]+(?:\.[\da-z\-]+)*))?(?:\+[\da-z\-]+(?:\.[\da-z\-]+)*)?)?)?$/i;
+const validateAndParse = (version2) => {
+  if (typeof version2 !== "string") {
+    throw new TypeError("Invalid argument expected string");
+  }
+  const match = version2.match(semver);
+  if (!match) {
+    throw new Error(`Invalid argument not valid semver ('${version2}' received)`);
+  }
+  match.shift();
+  return match;
+};
+const isWildcard = (s) => s === "*" || s === "x" || s === "X";
+const tryParse = (v) => {
+  const n = parseInt(v, 10);
+  return isNaN(n) ? v : n;
+};
+const forceType = (a, b) => typeof a !== typeof b ? [String(a), String(b)] : [a, b];
+const compareStrings = (a, b) => {
+  if (isWildcard(a) || isWildcard(b))
+    return 0;
+  const [ap, bp] = forceType(tryParse(a), tryParse(b));
+  if (ap > bp)
+    return 1;
+  if (ap < bp)
+    return -1;
+  return 0;
+};
+const compareSegments = (a, b) => {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const r = compareStrings(a[i] || "0", b[i] || "0");
+    if (r !== 0)
+      return r;
+  }
+  return 0;
+};
+const compareVersions = (v1, v2) => {
+  const n1 = validateAndParse(v1);
+  const n2 = validateAndParse(v2);
+  const p1 = n1.pop();
+  const p2 = n2.pop();
+  const r = compareSegments(n1, n2);
+  if (r !== 0)
+    return r;
+  if (p1 && p2) {
+    return compareSegments(p1.split("."), p2.split("."));
+  } else if (p1 || p2) {
+    return p1 ? -1 : 1;
+  }
+  return 0;
+};
+const compare = (v1, v2, operator) => {
+  assertValidOperator(operator);
+  const res = compareVersions(v1, v2);
+  return operatorResMap[operator].includes(res);
+};
+const operatorResMap = {
+  ">": [1],
+  ">=": [0, 1],
+  "=": [0],
+  "<=": [-1, 0],
+  "<": [-1],
+  "!=": [-1, 1]
+};
+const allowedOperators = Object.keys(operatorResMap);
+const assertValidOperator = (op) => {
+  if (typeof op !== "string") {
+    throw new TypeError(`Invalid operator type, expected string but got ${typeof op}`);
+  }
+  if (allowedOperators.indexOf(op) === -1) {
+    throw new Error(`Invalid operator, expected one of ${allowedOperators.join("|")}`);
+  }
+};
+const satisfies = (version2, range) => {
+  range = range.replace(/([><=]+)\s+/g, "$1");
+  if (range.includes("||")) {
+    return range.split("||").some((r4) => satisfies(version2, r4));
+  } else if (range.includes(" - ")) {
+    const [a, b] = range.split(" - ", 2);
+    return satisfies(version2, `>=${a} <=${b}`);
+  } else if (range.includes(" ")) {
+    return range.trim().replace(/\s{2,}/g, " ").split(" ").every((r4) => satisfies(version2, r4));
+  }
+  const m = range.match(/^([<>=~^]+)/);
+  const op = m ? m[1] : "=";
+  if (op !== "^" && op !== "~")
+    return compare(version2, range, op);
+  const [v1, v2, v3, , vp] = validateAndParse(version2);
+  const [r1, r2, r3, , rp] = validateAndParse(range);
+  const v = [v1, v2, v3];
+  const r = [r1, r2 !== null && r2 !== void 0 ? r2 : "x", r3 !== null && r3 !== void 0 ? r3 : "x"];
+  if (rp) {
+    if (!vp)
+      return false;
+    if (compareSegments(v, r) !== 0)
+      return false;
+    if (compareSegments(vp.split("."), rp.split(".")) === -1)
+      return false;
+  }
+  const nonZero = r.findIndex((v4) => v4 !== "0") + 1;
+  const i = op === "~" ? 2 : nonZero > 1 ? nonZero : 1;
+  if (compareSegments(v.slice(0, i), r.slice(0, i)) !== 0)
+    return false;
+  if (compareSegments(v.slice(i), r.slice(i)) === -1)
+    return false;
+  return true;
+};
+const validateStrict = (version2) => typeof version2 === "string" && /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/.test(version2);
+class StyleParse {
+  static #regexPixels = /(\d+)\s*px/;
+  /**
+   * @private
+   */
+  constructor() {
+    throw new Error("StyleParse constructor: This is a static class and should not be constructed.");
+  }
+  /**
+   * Parse a CSS declaration block / {@link CSSDeclarationBlock} (IE `color: red; font-size: 14px;`) into an object of
+   * property / value pairs.
+   *
+   * This implementation is optimized for parsing the output of `CSSStyleRule.style.cssText`, which is always
+   * well-formed according to the CSSOM spec. It is designed to be:
+   * ```
+   * - **Fast**: minimal allocations, no regex in the hot loop.
+   * - **Accurate**: ignores `;` inside quotes or parentheses.
+   * - **Flexible**: supports optional camel case conversion.
+   * - **CSS variable safe**: leaves `--*` properties untouched.
+   *```
+   *
+   * @param cssText - A valid CSS declaration block (no selectors).
+   *
+   * @param [options] - Optional parser settings.
+   *
+   * @param [options.camelCase=false] - Convert hyphen-case property names to camel case.
+   *
+   * @returns An object mapping property names to their CSS values.
+   */
+  static cssText(cssText, { camelCase = false } = {}) {
+    if (typeof cssText !== "string" || cssText.length === 0) {
+      return {};
+    }
+    if (cssText.indexOf(":") === -1) {
+      return {};
+    }
+    const out = {};
+    let segStart = 0;
+    let parens = 0;
+    let inSQ = false;
+    let inDQ = false;
+    for (let i = 0; i < cssText.length; i++) {
+      const ch = cssText[i];
+      if (ch === '"' && !inSQ) {
+        inDQ = !inDQ;
+      } else if (ch === "'" && !inDQ) {
+        inSQ = !inSQ;
+      } else if (!inSQ && !inDQ) {
+        if (ch === "(") {
+          parens++;
+        } else if (ch === ")") {
+          if (parens > 0) {
+            parens--;
+          }
+        } else if (ch === ";" && parens === 0) {
+          if (i > segStart) {
+            const chunk = cssText.slice(segStart, i).trim();
+            if (chunk) {
+              this.#cssTextFlushDecl(chunk, out, camelCase);
+            }
+          }
+          segStart = i + 1;
+        }
+      }
+    }
+    if (segStart < cssText.length) {
+      const chunk = cssText.slice(segStart).trim();
+      if (chunk) {
+        this.#cssTextFlushDecl(chunk, out, camelCase);
+      }
+    }
+    return out;
+  }
+  /**
+   * Parses a pixel string / computed styles. Ex. `100px` returns `100`.
+   *
+   * @param   value - Value to parse.
+   *
+   * @returns The integer component of a pixel string.
+   */
+  static pixels(value) {
+    if (typeof value !== "string") {
+      return void 0;
+    }
+    const isPixels = this.#regexPixels.test(value);
+    const number = parseInt(value);
+    return isPixels && Number.isFinite(number) ? number : void 0;
+  }
+  /**
+   * Returns the pixel value for `1rem` based on the root document element. You may apply an optional multiplier.
+   *
+   * @param [multiplier=1] - Optional multiplier to apply to `rem` pixel value; default: 1.
+   *
+   * @param [options] - Optional parameters.
+   *
+   * @param [options.targetDocument=document] The target DOM {@link Document} if different from the main
+   *        browser global `document`.
+   *
+   * @returns The pixel value for `1rem` with or without a multiplier based on the root document element.
+   */
+  static remPixels(multiplier = 1, { targetDocument = window.document } = {}) {
+    return targetDocument?.documentElement ? multiplier * parseFloat(window.getComputedStyle(targetDocument.documentElement).fontSize) : void 0;
+  }
+  /**
+   * Split a CSS selector list into individual selectors, honoring commas that appear only at the top level
+   * (IE not inside (), [], or quotes). Additional options provide inclusion / exclusion filtering of selector parts.
+   *
+   * Examples:
+   *   '.a, .b'                                  → ['.a', '.b']
+   *   ':is(.a, .b):not([data-x=","]) .c, .d'    → [':is(.a, .b):not([data-x=","]) .c', '.d']
+   *
+   * @param selectorText - `CSSStyleRule.selectorText` to parse.
+   *
+   * @param [options] - Optional filtering options.
+   *
+   * @param [options.excludeSelectorParts] - An array of RegExp instances to filter by exclusion.
+   *
+   * @param [options.includeSelectorPartSet] - A Set of strings to filter by inclusion.
+   *
+   * @returns Array of trimmed selector strings w/ optional filtering of parts.
+   */
+  static selectorText(selectorText, { excludeSelectorParts, includeSelectorPartSet } = {}) {
+    const parts = [];
+    if (typeof selectorText !== "string" || selectorText.length === 0) {
+      return parts;
+    }
+    const hasExclude = Array.isArray(excludeSelectorParts) && excludeSelectorParts.length > 0;
+    const hasInclude = CrossWindow.isSet(includeSelectorPartSet) && includeSelectorPartSet.size > 0;
+    let start = 0;
+    let inSQ = false;
+    let inDQ = false;
+    let paren = 0;
+    let bracket = 0;
+    for (let i = 0; i < selectorText.length; i++) {
+      const ch = selectorText[i];
+      if (ch === '"' && !inSQ) {
+        inDQ = !inDQ;
+        continue;
+      }
+      if (ch === "'" && !inDQ) {
+        inSQ = !inSQ;
+        continue;
+      }
+      if (inSQ || inDQ) {
+        continue;
+      }
+      if (ch === "(") {
+        paren++;
+        continue;
+      }
+      if (ch === ")") {
+        if (paren > 0) {
+          paren--;
+        }
+        continue;
+      }
+      if (ch === "[") {
+        bracket++;
+        continue;
+      }
+      if (ch === "]") {
+        if (bracket > 0) {
+          bracket--;
+        }
+        continue;
+      }
+      if (ch === "," && paren === 0 && bracket === 0) {
+        const piece = selectorText.slice(start, i).trim();
+        if (piece && (!hasInclude || includeSelectorPartSet.has(piece)) && (!hasExclude || !excludeSelectorParts.some((rx) => rx.test(piece)))) {
+          parts.push(piece);
+        }
+        start = i + 1;
+      }
+    }
+    const last = selectorText.slice(start).trim();
+    if (last && (!hasInclude || includeSelectorPartSet.has(last)) && (!hasExclude || !excludeSelectorParts.some((rx) => rx.test(last)))) {
+      parts.push(last);
+    }
+    return parts;
+  }
+  // Internal Implementation ----------------------------------------------------------------------------------------
+  /**
+   * Parse a single CSS declaration string into a property / value pair and store it in the output object.
+   *
+   * Note: Used by {@link StyleParse.cssText}.
+   *
+   * This method:
+   * ```
+   * - Splits on the first `:` into property and value parts
+   * - Trims whitespace from both
+   * - Optionally converts hyphen-case to camelCase
+   * - Ignores empty or malformed declarations
+   * ```
+   *
+   * @param chunk - The raw CSS declaration string (IE `"color: red"`).
+   *
+   * @param out - The object to store the parsed property / value pair.
+   *
+   * @param camelCase - Whether to convert hyphen-case keys to camel case.
+   */
+  static #cssTextFlushDecl(chunk, out, camelCase) {
+    const idx = chunk.indexOf(":");
+    if (idx < 0) {
+      return;
+    }
+    let key = chunk.slice(0, idx).trim();
+    if (!key) {
+      return;
+    }
+    const value = chunk.slice(idx + 1).trim();
+    if (camelCase && !key.startsWith("--")) {
+      let s = "";
+      for (let i = 0; i < key.length; i++) {
+        const code = key.charCodeAt(i);
+        if (code === 45 && i + 1 < key.length) {
+          i++;
+          s += key[i].toUpperCase();
+        } else {
+          s += key[i];
+        }
+      }
+      key = s;
+    }
+    out[key] = value;
+  }
+}
+class RuleManager {
+  /**
+   * The specific rule instance in the association HTMLStyleElement.
+   */
+  #cssRule;
+  /**
+   * The CSS selector for this rule manager.
+   */
+  #selector;
+  /**
+   * The name that this rule manager is indexed by in the associated `StyleManager` instance.
+   */
+  #name;
+  /**
+   * @param   cssRule -
+   *
+   * @param   name -
+   *
+   * @param   selector -
+   */
+  constructor(cssRule, name, selector) {
+    if (!CrossWindow.isCSSStyleRule(cssRule)) {
+      throw new TypeError(`RuleManager error: 'cssRule' is not a CSSStyleRule instance..`);
+    }
+    if (typeof name !== "string") {
+      throw new TypeError(`RuleManager error: 'name' is not a string.`);
+    }
+    if (typeof selector !== "string") {
+      throw new TypeError(`RuleManager error: 'selector' is not a string.`);
+    }
+    this.#cssRule = cssRule;
+    this.#name = name;
+    this.#selector = selector;
+  }
+  // Accessors ------------------------------------------------------------------------------------------------------
+  /**
+   * @returns Provides an accessor to get the `cssText` for the style rule or undefined if not connected.
+   */
+  get cssText() {
+    return this.isConnected ? this.#cssRule.style.cssText : void 0;
+  }
+  /**
+   * Determines if this RuleManager is still connected / available.
+   *
+   * @returns Is RuleManager connected.
+   */
+  get isConnected() {
+    const sheet = this.#cssRule?.parentStyleSheet;
+    const owner = sheet?.ownerNode;
+    return !!(sheet && owner && owner.isConnected);
+  }
+  /**
+   * @returns Name of this RuleManager indexed by associated StyleManager.
+   */
+  get name() {
+    return this.#name;
+  }
+  /**
+   * @returns The associated selector for this CSS rule.
+   */
+  get selector() {
+    return this.#selector;
+  }
+  /**
+   * @param   cssText - Provides an accessor to set the `cssText` for the style rule.
+   */
+  set cssText(cssText) {
+    if (!this.isConnected) {
+      return;
+    }
+    this.#cssRule.style.cssText = typeof cssText === "string" ? cssText : "";
+  }
+  // Iterator -------------------------------------------------------------------------------------------------------
+  /**
+   * Allows usage in `for of` loops directly.
+   *
+   * @returns Entries Map iterator.
+   */
+  [Symbol.iterator]() {
+    return this.entries();
+  }
+  // Methods --------------------------------------------------------------------------------------------------------
+  /**
+   * @returns Iterator of CSS property entries in hyphen-case.
+   */
+  entries() {
+    return Object.entries(this.get() ?? {})[Symbol.iterator]();
+  }
+  /**
+   * Retrieves an object with the current CSS rule data.
+   *
+   * @param [options] - Optional settings.
+   *
+   * @param [options.camelCase=false] - Whether to convert property names to camel case.
+   *
+   * @returns Current CSS style data or undefined if not connected.
+   */
+  get(options = {}) {
+    return this.isConnected ? StyleParse.cssText(this.#cssRule.style.cssText, options) : void 0;
+  }
+  /**
+   * Gets a particular CSS property value.
+   *
+   * @param key - CSS property key; must be in hyphen-case (IE `background-color`).
+   *
+   * @returns Returns CSS property value or undefined if non-existent.
+   */
+  getProperty(key) {
+    if (!this.isConnected) {
+      return void 0;
+    }
+    if (typeof key !== "string") {
+      throw new TypeError(`RuleManager error: 'key' is not a string.`);
+    }
+    const result = this.#cssRule.style.getPropertyValue(key);
+    return result !== "" ? result : void 0;
+  }
+  /**
+   * Returns whether this CSS rule manager has a given property key.
+   *
+   * @param key - CSS property key; must be in hyphen-case (IE `background-color`).
+   *
+   * @returns Property key exists / is defined.
+   */
+  hasProperty(key) {
+    if (!this.isConnected) {
+      return false;
+    }
+    if (typeof key !== "string") {
+      throw new TypeError(`RuleManager error: 'key' is not a string.`);
+    }
+    return this.#cssRule.style.getPropertyValue(key) !== "";
+  }
+  /**
+   * @returns Iterator of CSS property keys in hyphen-case.
+   */
+  keys() {
+    return Object.keys(this.get() ?? {})[Symbol.iterator]();
+  }
+  /**
+   * Set CSS properties in bulk by property / value. Must use hyphen-case.
+   *
+   * @param styles - CSS styles object.
+   *
+   * @param [options] - Options.
+   *
+   * @param [override=true] - When true overrides any existing values; default: `true`.
+   */
+  setProperties(styles, { override = true } = {}) {
+    if (!this.isConnected) {
+      return;
+    }
+    if (!isObject(styles)) {
+      throw new TypeError(`RuleManager error: 'styles' is not an object.`);
+    }
+    if (typeof override !== "boolean") {
+      throw new TypeError(`RuleManager error: 'override' is not a boolean.`);
+    }
+    if (override) {
+      for (const [key, value] of Object.entries(styles)) {
+        this.#cssRule.style.setProperty(key, value);
+      }
+    } else {
+      for (const [key, value] of Object.entries(styles)) {
+        if (this.#cssRule.style.getPropertyValue(key) === "") {
+          this.#cssRule.style.setProperty(key, value);
+        }
+      }
+    }
+  }
+  /**
+   * Sets a particular property.
+   *
+   * @param key - CSS property key; must be in hyphen-case (IE `background-color`).
+   *
+   * @param value - CSS property value.
+   *
+   * @param [options] - Options.
+   *
+   * @param [options.override=true] - When true overrides any existing value; default: `true`.
+   */
+  setProperty(key, value, { override = true } = {}) {
+    if (!this.isConnected) {
+      return;
+    }
+    if (typeof key !== "string") {
+      throw new TypeError(`RuleManager error: 'key' is not a string.`);
+    }
+    if (typeof value !== "string") {
+      throw new TypeError(`RuleManager error: 'value' is not a string.`);
+    }
+    if (typeof override !== "boolean") {
+      throw new TypeError(`RuleManager error: 'override' is not a boolean.`);
+    }
+    if (override) {
+      this.#cssRule.style.setProperty(key, value);
+    } else {
+      if (this.#cssRule.style.getPropertyValue(key) === "") {
+        this.#cssRule.style.setProperty(key, value);
+      }
+    }
+  }
+  /**
+   * Removes the property keys specified. If `keys` is an iterable list then all property keys in the list are
+   * removed. The keys must be in hyphen-case (IE `background-color`).
+   *
+   * @param keys - The property keys to remove.
+   */
+  removeProperties(keys) {
+    if (!this.isConnected) {
+      return;
+    }
+    if (!isIterable(keys)) {
+      throw new TypeError(`RuleManager error: 'keys' is not an iterable list.`);
+    }
+    for (const key of keys) {
+      if (typeof key === "string") {
+        this.#cssRule.style.removeProperty(key);
+      }
+    }
+  }
+  /**
+   * Removes a particular CSS property.
+   *
+   * @param key - CSS property key; must be in hyphen-case (IE `background-color`).
+   *
+   * @returns CSS value when removed or undefined if non-existent.
+   */
+  removeProperty(key) {
+    if (!this.isConnected) {
+      return void 0;
+    }
+    if (typeof key !== "string") {
+      throw new TypeError(`RuleManager error: 'key' is not a string.`);
+    }
+    const result = this.#cssRule.style.removeProperty(key);
+    return result !== "" ? result : void 0;
+  }
+}
+class StyleManager {
+  /**
+   * Provides a token allowing internal instance construction.
+   */
+  static #CTOR_TOKEN = Symbol("StyleManager.CTOR_TOKEN");
+  /**
+   * Stores configured RuleManager instance by name.
+   */
+  #cssRuleMap;
+  /**
+   * CSS ID associated with style element.
+   */
+  #id;
+  /**
+   * Any associated CSS layer name.
+   */
+  #layerName;
+  /**
+   * The target style element.
+   */
+  #styleElement;
+  /**
+   * The version of this style manager.
+   */
+  #version;
+  /**
+   * @private
+   */
+  constructor({ cssRuleMap, id, styleElement, version: version2, layerName, token }) {
+    if (token !== StyleManager.#CTOR_TOKEN) {
+      throw new Error("StyleManager constructor: Please use the static `create` or `connect` methods.");
+    }
+    this.#cssRuleMap = cssRuleMap;
+    this.#id = id;
+    this.#layerName = layerName;
+    this.#styleElement = styleElement;
+    this.#version = version2;
+  }
+  // Static Methods -------------------------------------------------------------------------------------------------
+  /**
+   * Connect to an existing dynamic styles managed element by CSS ID with semver check on version range compatibility.
+   *
+   * @param   options - Options.
+   */
+  static connect({ id, range, document: document2 = window.document, warn = false }) {
+    if (typeof id !== "string") {
+      throw new TypeError(`'id' is not a string.`);
+    }
+    if (typeof range !== "string") {
+      throw new TypeError(`'range' is not a string.`);
+    }
+    if (!CrossWindow.isDocument(document2)) {
+      throw new TypeError(`'document' is not an instance of HTMLDocument.`);
+    }
+    return this.#initializeConnect(document2, id, range, warn);
+  }
+  /**
+   * @param   options - Options.
+   *
+   * @returns Created style manager instance or undefined if already exists with a higher version.
+   */
+  static create(options) {
+    return this.#createImpl(options);
+  }
+  /**
+   * Query and check for an existing dynamic style manager element / instance given a CSS ID.
+   *
+   * @param   options - Options.
+   *
+   * @returns Undefined if no style manager is configured for the given CSS ID otherwise an object containing the
+   *          current version and HTMLStyleElement associated with the CSS ID.
+   */
+  static exists({ id, document: document2 = window.document }) {
+    if (typeof id !== "string") {
+      throw new TypeError(`'id' is not a string.`);
+    }
+    if (!CrossWindow.isDocument(document2)) {
+      throw new TypeError(`'document' is not an instance of HTMLDocument.`);
+    }
+    const existingStyleEl = document2.querySelector(`head style#${id}`);
+    if (existingStyleEl) {
+      const existingVersion = existingStyleEl.getAttribute("data-version") ?? "";
+      if (validateStrict(existingVersion)) {
+        return {
+          id,
+          version: existingVersion,
+          element: existingStyleEl
+        };
+      }
+    }
+    return void 0;
+  }
+  // Accessors ------------------------------------------------------------------------------------------------------
+  /**
+   * Determines if this StyleManager style element is still connected / available.
+   *
+   * @returns Is StyleManager connected.
+   */
+  get isConnected() {
+    return !!this.#styleElement?.isConnected;
+  }
+  /**
+   * @returns Provides an accessor to get the `textContent` for the style sheet.
+   */
+  get textContent() {
+    return this.#styleElement?.textContent;
+  }
+  /**
+   * @returns Returns the version of this instance.
+   */
+  get version() {
+    return this.#version;
+  }
+  // Iterator -------------------------------------------------------------------------------------------------------
+  /**
+   * Allows usage in `for of` loops directly.
+   *
+   * @returns Entries Map iterator.
+   */
+  [Symbol.iterator]() {
+    return this.entries();
+  }
+  // Methods --------------------------------------------------------------------------------------------------------
+  /**
+   * Provides a copy constructor to duplicate an existing StyleManager instance into a new document.
+   *
+   * @param   options - Required clone options.
+   *
+   * @returns New style manager instance or undefined if not connected.
+   */
+  clone({ document: document2, force = false, warn = false }) {
+    if (!this.isConnected) {
+      StyleManager.#log(warn, "clone", `This style manager instance is not connected for id: ${this.#id}`);
+      return void 0;
+    }
+    if (!CrossWindow.isDocument(document2)) {
+      throw new TypeError(`'document' is not an instance of HTMLDocument.`);
+    }
+    const rules = {};
+    for (const key of this.#cssRuleMap.keys()) {
+      const selector = this.#cssRuleMap.get(key)?.selector;
+      if (selector) {
+        rules[key] = selector;
+      }
+    }
+    const newStyleManager = StyleManager.#createImpl({
+      id: this.#id,
+      version: this.#version,
+      layerName: this.#layerName,
+      rules,
+      document: document2,
+      force,
+      warn
+    });
+    if (newStyleManager) {
+      for (const key of this.#cssRuleMap.keys()) {
+        if (newStyleManager.#cssRuleMap.has(key)) {
+          const value = this.#cssRuleMap.get(key)?.cssText;
+          const targetRuleManager = newStyleManager.#cssRuleMap.get(key);
+          if (value && targetRuleManager) {
+            targetRuleManager.cssText = value;
+          }
+        }
+      }
+      return newStyleManager;
+    }
+    return void 0;
+  }
+  /**
+   * @returns RuleManager entries iterator.
+   */
+  entries() {
+    return this.#cssRuleMap.entries();
+  }
+  /**
+   * Retrieves an associated {@link RuleManager} by name.
+   *
+   * @param   ruleName - Rule name.
+   *
+   * @returns Associated rule manager for given name or undefined if the rule name is not defined or manager is
+   *          unconnected.
+   */
+  get(ruleName) {
+    if (!this.isConnected) {
+      return;
+    }
+    return this.#cssRuleMap.get(ruleName);
+  }
+  /**
+   * Returns whether a {@link StyleManager.CSSRuleManger} exists for the given name.
+   *
+   * @param ruleName - Rule name.
+   *
+   * @returns Is there a CSS rule manager with the given name.
+   */
+  has(ruleName) {
+    return this.#cssRuleMap.has(ruleName);
+  }
+  /**
+   * @returns {MapIterator<string>} RuleManager keys iterator.
+   */
+  keys() {
+    return this.#cssRuleMap.keys();
+  }
+  /**
+   * @returns Iterator of all RuleManager instances.
+   */
+  values() {
+    return this.#cssRuleMap.values();
+  }
+  // Internal Implementation ----------------------------------------------------------------------------------------
+  /**
+   * Internal `create` implementation with additional `force` option to override any version check.
+   *
+   * @param   options - Options.
+   *
+   * @returns Created style manager instance or undefined if already exists with a higher version.
+   */
+  static #createImpl({ id, rules, version: version2, layerName, document: document2 = window.document, force = false, warn = false }) {
+    if (typeof id !== "string") {
+      throw new TypeError(`'id' is not a string.`);
+    }
+    if (!isObject(rules)) {
+      throw new TypeError(`'rules' is not an object.`);
+    }
+    if (!CrossWindow.isDocument(document2)) {
+      throw new TypeError(`'document' is not an instance of HTMLDocument.`);
+    }
+    if (!validateStrict(version2)) {
+      throw new TypeError(`'version' is not a valid semver string.`);
+    }
+    if (typeof force !== "boolean") {
+      throw new TypeError(`'force' is not a boolean.`);
+    }
+    if (typeof warn !== "boolean") {
+      throw new TypeError(`'warn' is not a boolean.`);
+    }
+    if (layerName !== void 0 && typeof layerName !== "string") {
+      throw new TypeError(`'layerName' is not a string.`);
+    }
+    const current = this.exists({ id, document: document2 });
+    if (isObject(current)) {
+      if (force || compare(version2, current.version, ">")) {
+        current.element?.remove?.();
+        return this.#initializeCreate(document2, id, rules, version2, layerName);
+      } else {
+        this.#log(warn, "create", `Could not create instance as one already exists with a higher version for ID: ${id}.`);
+        return void 0;
+      }
+    } else {
+      return this.#initializeCreate(document2, id, rules, version2, layerName);
+    }
+  }
+  /**
+   * @param document - Target Document.
+   *
+   * @param id - Associated CSS ID
+   *
+   * @param range - SemVer version or version range.
+   *
+   * @param warn - When true, log warnings.
+   *
+   * @returns Style manager connected to existing element / style rules or undefined if no connection possible.
+   */
+  static #initializeConnect(document2, id, range, warn = false) {
+    const styleElement = document2.querySelector(`head style#${id}`);
+    if (!styleElement || styleElement?.sheet === null) {
+      this.#log(warn, "connect", `Could not find existing style element for id: ${id}`);
+      return void 0;
+    }
+    const existingRules = styleElement._tjsRules;
+    const existingVersion = styleElement._tjsVersion;
+    const existingLayerName = styleElement._tjsLayerName;
+    let targetSheet = styleElement.sheet;
+    if (!isObject(existingRules)) {
+      this.#log(warn, "connect", `Could not find rules configuration on existing style element for id: ${id}`);
+      return void 0;
+    }
+    if (!validateStrict(existingVersion)) {
+      this.#log(warn, "connect", `Could not find version on existing style element for id: ${id}`);
+      return void 0;
+    }
+    if (existingLayerName !== void 0 && typeof existingLayerName !== "string") {
+      this.#log(warn, "connect", `Could not find layer name on existing style element for id: ${id}`);
+      return void 0;
+    }
+    if (!satisfies(existingVersion, range)) {
+      this.#log(warn, "connect", `Requested range (${range}) does not satisfy existing version: ${existingVersion}`);
+      return void 0;
+    }
+    if (!CrossWindow.isCSSStyleSheet(targetSheet)) {
+      return void 0;
+    }
+    const cssRuleMap = /* @__PURE__ */ new Map();
+    const reverseRuleMap = new Map(Object.entries(existingRules).map(([key, value]) => [value, key]));
+    try {
+      if (typeof existingLayerName) {
+        let foundLayer = false;
+        for (const rule of Array.from(targetSheet.cssRules)) {
+          if (CrossWindow.isCSSLayerBlockRule(rule) && rule.name === existingLayerName) {
+            targetSheet = rule;
+            foundLayer = true;
+          }
+        }
+        if (!foundLayer) {
+          this.#log(warn, "connect", `Could not find CSSLayerBlockRule for existing layer name: ${existingLayerName}`);
+          return void 0;
+        }
+      }
+      for (const cssRule of Array.from(targetSheet.cssRules)) {
+        if (!CrossWindow.isCSSStyleRule(cssRule)) {
+          continue;
+        }
+        const selector = cssRule?.selectorText;
+        if (reverseRuleMap.has(selector)) {
+          const ruleName = reverseRuleMap.get(selector);
+          cssRuleMap.set(ruleName, new RuleManager(cssRule, ruleName, selector));
+          reverseRuleMap.delete(selector);
+        }
+      }
+      if (reverseRuleMap.size > 0) {
+        this.#log(warn, "connect", `Could not find CSSStyleRules for these rule configurations: ${JSON.stringify([...reverseRuleMap])}`);
+        return void 0;
+      }
+      return new StyleManager({
+        cssRuleMap,
+        id,
+        version: existingVersion,
+        layerName: existingLayerName,
+        styleElement,
+        token: StyleManager.#CTOR_TOKEN
+      });
+    } catch (error) {
+      console.error(`TyphonJS Runtime [StyleManager error]: Please update your browser to the latest version.`, error);
+    }
+    return void 0;
+  }
+  /**
+   * @param document - Target Document.
+   *
+   * @param id - Associated CSS ID
+   *
+   * @param rules -
+   *
+   * @param version -
+   *
+   * @param layerName -
+   *
+   * @returns New StyleManager instance.
+   */
+  static #initializeCreate(document2, id, rules, version2, layerName) {
+    const styleElement = document2.createElement("style");
+    styleElement.id = id;
+    styleElement.setAttribute("data-version", String(version2));
+    styleElement._tjsRules = rules;
+    styleElement._tjsVersion = version2;
+    styleElement._tjsLayerName = layerName;
+    document2.head.append(styleElement);
+    let targetSheet;
+    if (styleElement.sheet === null) {
+      return void 0;
+    }
+    const cssRuleMap = /* @__PURE__ */ new Map();
+    try {
+      if (layerName) {
+        const index = styleElement.sheet.insertRule(`@layer ${layerName} {}`);
+        targetSheet = styleElement.sheet.cssRules[index];
+      } else {
+        targetSheet = styleElement.sheet;
+      }
+      if (rules) {
+        for (const ruleName in rules) {
+          const selector = rules[ruleName];
+          const index = targetSheet.insertRule(`${selector} {}`);
+          const cssRule = targetSheet.cssRules[index];
+          cssRuleMap.set(ruleName, new RuleManager(cssRule, ruleName, selector));
+        }
+      }
+      return new StyleManager({
+        cssRuleMap,
+        id,
+        version: version2,
+        layerName,
+        styleElement,
+        token: StyleManager.#CTOR_TOKEN
+      });
+    } catch (error) {
+      console.error(`TyphonJS Runtime [StyleManager error]: Please update your browser to the latest version.`, error);
+      if (styleElement && styleElement.parentNode) {
+        styleElement.remove();
+      }
+    }
+    return void 0;
+  }
+  /**
+   * @param   warn - When true, log warnings.
+   *
+   * @param   path - Particular interaction path for warning.
+   *
+   * @param   message - Message to log.
+   */
+  static #log(warn, path, message) {
+    if (warn) {
+      console.warn(`[TRL StyleManager] ${path} warning: ${message}`);
+    }
+  }
+}
+var _a$1, _b;
+class StyleSheetResolve {
+  /**
+   * Detects hyphen-case separator for camel case property key conversion.
+   */
+  static #HYPHEN_CASE_REGEX = /-([a-z])/g;
+  /**
+   * Detects just a single `(prefers-*)` CSSMediaRule condition.
+   */
+  static #MEDIA_RULE_PREFERS = /^\s*\(?\s*prefers-[^)]+(?:\s*:\s*[^)]+)?\)?\s*$/i;
+  /**
+   * Detects relative `url()` references in CSSStyleRule `cssText`.
+   */
+  static #URL_DETECTION_REGEX = /\burl\(\s*(['"]?)(?!data:|https?:|\/|#)/i;
+  /**
+   * Captures contents of `url()` references.
+   */
+  static #URL_REGEX = /url\((['"]?)([^'")]+)\1\)/g;
+  /**
+   * Internal tracking of frozen state; once frozen, no more modifications are possible.
+   */
+  #frozen = false;
+  /**
+   * Parsed selector to associated style properties.
+   */
+  #sheetMap = /* @__PURE__ */ new Map();
+  /**
+   * Parse a CSSStyleSheet instance with the given options or accept a pre-filled Map generating a new
+   * `StyleSheetResolve` instance.
+   *
+   * @param styleSheetOrMap - The stylesheet instance to parse or an existing parsed stylesheet Map.
+   *
+   * @param [options] - Options for parsing stylesheet.
+   *
+   * @returns {StyleSheetResolve} New instance with the given parsed data.
+   */
+  static parse(styleSheetOrMap, options = {}) {
+    return new _a$1().parse(styleSheetOrMap, options);
+  }
+  /**
+   * Instantiate an empty `StyleSheetResolve` instance.
+   */
+  constructor() {
+  }
+  // Accessors ------------------------------------------------------------------------------------------------------
+  /**
+   * @returns Current frozen state; when true no more modifications are possible.
+   */
+  get frozen() {
+    return this.#frozen;
+  }
+  /**
+   * @returns Returns the size / count of selector properties tracked.
+   */
+  get size() {
+    return this.#sheetMap.size;
+  }
+  // Iterator -------------------------------------------------------------------------------------------------------
+  /**
+   * Allows usage in `for of` loops directly.
+   *
+   * @returns Entries Map iterator.
+   */
+  *[Symbol.iterator]() {
+    yield* this.entries();
+  }
+  // Methods --------------------------------------------------------------------------------------------------------
+  /**
+   * Clears any existing parsed styles.
+   */
+  clear() {
+    if (this.#frozen) {
+      throw new Error("Cannot modify a frozen StyleSheetResolve instance.");
+    }
+    this.#sheetMap.clear();
+  }
+  /**
+   * Clones this instance returning a new `StyleSheetResolve` instance with a copy of the data.
+   *
+   * @returns Cloned instance.
+   */
+  clone() {
+    return _a$1.parse(this.#clone(this.#sheetMap));
+  }
+  /**
+   * Deletes an entry in the parsed stylesheet Map.
+   *
+   * @param   selector - Selector key to delete.
+   *
+   * @returns Success state.
+   */
+  delete(selector) {
+    if (this.#frozen) {
+      throw new Error("Cannot modify a frozen StyleSheetResolve instance.");
+    }
+    return this.#sheetMap.delete(selector);
+  }
+  /**
+   * Entries iterator of selector / style properties objects.
+   *
+   * @returns {MapIterator<[string, { [key: string]: string }]>} Tracked CSS selector key / value iterator.
+   * @yields
+   */
+  *entries() {
+    for (const key of this.#sheetMap.keys()) {
+      yield [key, { ...this.#sheetMap.get(key) }];
+    }
+  }
+  /**
+   * Freezes this instance disallowing further modifications to the stylesheet data.
+   *
+   * @returns This instance.
+   */
+  freeze() {
+    if (this.#frozen) {
+      return this;
+    }
+    this.#frozen = true;
+    for (const props of this.#sheetMap.values()) {
+      Object.freeze(props);
+    }
+    Object.freeze(this.#sheetMap);
+    return this;
+  }
+  /**
+   * Gets all properties associated with the given selector(s). You may combine multiple selectors for a
+   * combined result. You may also provide additional selectors as the `resolve` option to substitute any CSS variables
+   * in the target selector(s).
+   *
+   * @param selector - A selector or list of selectors to retrieve.
+   *
+   * @param [options] - Options.
+   *
+   * @returns Style properties object or undefined.
+   */
+  get(selector, { camelCase = false, depth, resolve, warnCycles = false, warnResolve = false } = {}) {
+    if (typeof selector !== "string" && !isIterable(selector)) {
+      throw new TypeError(`'selector' must be a string or an iterable list of strings.`);
+    }
+    if (typeof camelCase !== "boolean") {
+      throw new TypeError(`'camelCase' must be a boolean.`);
+    }
+    if (depth !== void 0 && (!Number.isInteger(depth) || depth < 1)) {
+      throw new TypeError(`'depth' must be a positive integer >= 1.`);
+    }
+    if (resolve !== void 0 && typeof resolve !== "string" && !isIterable(resolve)) {
+      throw new TypeError(`'resolve' must be a string or an iterable list of strings.`);
+    }
+    if (typeof warnCycles !== "boolean") {
+      throw new TypeError(`'warnCycles' must be a boolean.`);
+    }
+    if (typeof warnResolve !== "boolean") {
+      throw new TypeError(`'warnResolve' must be a boolean.`);
+    }
+    let result = void 0;
+    if (isIterable(selector)) {
+      for (const entry of selector) {
+        if (this.#sheetMap.has(entry)) {
+          result = Object.assign(result ?? {}, this.#sheetMap.get(entry));
+        }
+      }
+    } else {
+      if (this.#sheetMap.has(selector)) {
+        result = Object.assign(result ?? {}, this.#sheetMap.get(selector));
+      }
+    }
+    if (result && (typeof resolve === "string" || isIterable(resolve))) {
+      const resolveList = typeof resolve === "string" ? [resolve] : Array.from(resolve);
+      depth = typeof depth === "number" ? depth : Math.max(1, resolveList.length);
+      const resolveData = {
+        parentNotFound: /* @__PURE__ */ new Set(),
+        seenCycles: /* @__PURE__ */ new Set(),
+        warnCycles
+      };
+      for (let cntr = 0; cntr < depth && cntr < resolveList.length; cntr++) {
+        this.#resolve(result, resolveList, resolveData);
+      }
+      if (resolveData.parentNotFound.size > 0) {
+        console.warn(`[TyphonJS Runtime] StyleSheetResolve - resolve - Could not locate parent selector(s) for resolution: '${[...resolveData.parentNotFound].join(", ")}'`);
+      }
+    }
+    if (result && camelCase) {
+      const remapped = {};
+      const toUpper = (_, str) => str.toUpperCase();
+      for (const key in result) {
+        const mappedKey = key.startsWith("--") ? key : key.replace(_a$1.#HYPHEN_CASE_REGEX, toUpper);
+        remapped[mappedKey] = result[key];
+      }
+      result = remapped;
+    }
+    return result;
+  }
+  /**
+   * Gets a specific property value from the given `selector` and `property` key.
+   *
+   * @param   selector - A selector or list of selectors to retrieve.
+   *
+   * @param   property - Specific property to locate.
+   *
+   * @param   [options] - Options.
+   *
+   * @returns Style property value.
+   */
+  getProperty(selector, property, options) {
+    const data = this.get(selector, options);
+    return isObject(data) && property in data ? data[property] : void 0;
+  }
+  /**
+   * Test if `StyleSheetResolve` tracks the given selector.
+   *
+   * @param   selector - CSS selector to check.
+   *
+   * @returns StyleSheetResolve tracks the given selector.
+   */
+  has(selector) {
+    return this.#sheetMap.has(selector);
+  }
+  /**
+   * @returns Tracked CSS selector keys iterator.
+   */
+  keys() {
+    return this.#sheetMap.keys();
+  }
+  /**
+   * Merges selectors and style properties from another StyleSheetResolve instance into this one. By default, the
+   * source of the merge overrides existing properties. You may choose to preserve existing values along with
+   * specifying exact selector matches.
+   *
+   * @param   source - Another instance to merge from.
+   *
+   * @param   [options] - Options.
+   *
+   * @returns This instance.
+   */
+  merge(source, { exactMatch = false, strategy = "override" } = {}) {
+    if (this.#frozen) {
+      throw new Error("Cannot modify a frozen StyleSheetResolve instance.");
+    }
+    if (!(source instanceof _a$1)) {
+      throw new TypeError(`'source' is not a StyleSheetResolve instance.`);
+    }
+    for (const selectorPart of source.keys()) {
+      if (exactMatch && !this.#sheetMap.has(selectorPart)) {
+        continue;
+      }
+      const incoming = source.#sheetMap.get(selectorPart);
+      if (!incoming) {
+        continue;
+      }
+      const current = this.#sheetMap.get(selectorPart) ?? {};
+      const merged = strategy === "preserve" ? Object.assign({}, { ...incoming }, current) : Object.assign({}, current, incoming);
+      this.#sheetMap.set(selectorPart, merged);
+    }
+    return this;
+  }
+  /**
+   * Clears existing stylesheet mapping and parses the given stylesheet or Map.
+   *
+   * @param   styleSheetOrMap - The stylesheet element to parse or an existing parsed stylesheet Map.
+   *
+   * @param   [options] - Options for parsing stylesheet.
+   *
+   * @returns This instance.
+   */
+  parse(styleSheetOrMap, options = {}) {
+    if (this.#frozen) {
+      throw new Error("Cannot modify a frozen StyleSheetResolve instance.");
+    }
+    this.#sheetMap.clear();
+    if (!CrossWindow.isCSSStyleSheet(styleSheetOrMap) && !CrossWindow.isMap(styleSheetOrMap)) {
+      throw new TypeError(`'styleSheetOrMap' must be a 'CSSStyleSheet' instance or a parsed Map of stylesheet entries.`);
+    }
+    if (!isObject(options)) {
+      throw new TypeError(`'options' is not an object.`);
+    }
+    if (options.baseHref !== void 0 && typeof options.baseHref !== "string") {
+      throw new TypeError(`'baseHref' must be a string.`);
+    }
+    if (options.excludeSelectorParts !== void 0 && !isIterable(options.excludeSelectorParts)) {
+      throw new TypeError(`'excludeSelectorParts' must be a list of RegExp instances.`);
+    }
+    if (options.includeCSSLayers !== void 0 && !isIterable(options.includeCSSLayers)) {
+      throw new TypeError(`'includeCSSLayers' must be a list of RegExp instances.`);
+    }
+    if (options.includeSelectorPartSet !== void 0 && !CrossWindow.isSet(options.includeSelectorPartSet)) {
+      throw new TypeError(`'includeSelectorPartSet' must be a Set of strings.`);
+    }
+    if (options.mediaQuery !== void 0 && typeof options.mediaQuery !== "boolean") {
+      throw new TypeError(`'mediaQuery' must be a boolean.`);
+    }
+    if (options.urlRewrite !== void 0 && typeof options.urlRewrite !== "boolean") {
+      throw new TypeError(`'urlRewrite' must be a boolean.`);
+    }
+    if (CrossWindow.isCSSStyleSheet(styleSheetOrMap)) {
+      this.#parse(styleSheetOrMap, options);
+    } else if (CrossWindow.isMap(styleSheetOrMap)) {
+      this.#sheetMap = this.#clone(styleSheetOrMap);
+    }
+    return this;
+  }
+  /**
+   * Directly sets a selector key with the given style properties object.
+   *
+   * @param   selector - A single selector key to set.
+   *
+   * @param   styleObj - Style data object of property / value pairs.
+   */
+  set(selector, styleObj) {
+    if (this.#frozen) {
+      throw new Error("Cannot modify a frozen StyleSheetResolve instance.");
+    }
+    if (typeof selector !== "string") {
+      throw new TypeError(`'selector' must be a string.`);
+    }
+    if (!isObject(styleObj)) {
+      throw new TypeError(`'styleObj' must be an object.`);
+    }
+    this.#sheetMap.set(selector, styleObj);
+  }
+  // Internal Implementation ----------------------------------------------------------------------------------------
+  /**
+   * Shallow clone of source Map into target Map.
+   *
+   * @param   sourceMap - Source Map.
+   *
+   * @param   [targetMap] - Target Map.
+   *
+   * @returns Shallow copy cloned Map.
+   */
+  #clone(sourceMap, targetMap = /* @__PURE__ */ new Map()) {
+    for (const [selector, props] of sourceMap.entries()) {
+      targetMap.set(selector, { ...props });
+    }
+    return targetMap;
+  }
+  /**
+   * Parses the given CSSStyleSheet instance.
+   *
+   * @param styleSheet - The stylesheet to parse.
+   *
+   * @param [opts] - Options for parsing stylesheet.
+   */
+  #parse(styleSheet, opts) {
+    const options = {
+      baseHref: styleSheet.href ?? opts.baseHref,
+      excludeSelectorParts: isIterable(opts.excludeSelectorParts) ? Array.from(opts.excludeSelectorParts) : [],
+      includeCSSLayers: isIterable(opts.includeCSSLayers) ? Array.from(opts.includeCSSLayers) : [],
+      includeSelectorPartSet: CrossWindow.isSet(opts.includeSelectorPartSet) ? opts.includeSelectorPartSet : /* @__PURE__ */ new Set(),
+      mediaQuery: opts.mediaQuery ?? true,
+      urlRewrite: opts.urlRewrite ?? true
+    };
+    const rules = styleSheet.cssRules;
+    const allStyleRules = [];
+    for (let i = 0; i < rules.length; i++) {
+      const rule = rules[i];
+      switch (rule.constructor.name) {
+        case "CSSLayerBlockRule":
+          this.#processLayerBlockRule(rule, void 0, allStyleRules, options);
+          break;
+        case "CSSMediaRule":
+          this.#processMediaRule(rule, allStyleRules, options);
+          break;
+        case "CSSStyleRule":
+          allStyleRules.push(rule);
+          break;
+      }
+    }
+    this.#processStyleRules(allStyleRules, options);
+  }
+  /**
+   * Recursively parses / processes a CSSLayerBlockRule and encountered CSSStyleRule entries.
+   *
+   * @param   blockRule - The `CSSLayerBlockRule` to parse.
+   *
+   * @param   parentLayerName - Name of parent CSS layer.
+   *
+   * @param   allStyleRules - All style rules to process.
+   *
+   * @param   opts - Sanitized process options.
+   */
+  #processLayerBlockRule(blockRule, parentLayerName, allStyleRules, opts) {
+    const fullname = typeof parentLayerName === "string" ? `${parentLayerName}.${blockRule.name}` : blockRule.name;
+    const includeLayer = opts.includeCSSLayers.length === 0 || opts.includeCSSLayers.some((regex) => regex.test(fullname));
+    const layerBlockRules = [];
+    const rules = blockRule.cssRules;
+    for (let i = 0; i < rules.length; i++) {
+      const rule = rules[i];
+      switch (rule.constructor.name) {
+        case "CSSLayerBlockRule":
+          layerBlockRules.push(rule);
+          break;
+        case "CSSMediaRule":
+          this.#processMediaRule(rule, allStyleRules, opts);
+          break;
+        case "CSSStyleRule":
+          if (includeLayer) {
+            allStyleRules.push(rule);
+          }
+          break;
+      }
+    }
+    for (let i = 0; i < layerBlockRules.length; i++) {
+      this.#processLayerBlockRule(layerBlockRules[i], fullname, allStyleRules, opts);
+    }
+  }
+  /**
+   * Simple processing of a CSSMediaRule and directly nested CSSStyleRule entries.
+   *
+   * @param   mediaRule - The `CSSMediaRule` to parse.
+   *
+   * @param   allStyleRules - All style rules to process.
+   *
+   * @param   opts - Sanitized process options.
+   */
+  #processMediaRule(mediaRule, allStyleRules, opts) {
+    if (!opts.mediaQuery) {
+      return;
+    }
+    if (!window.matchMedia(mediaRule.media.mediaText).matches) {
+      return;
+    }
+    if (!_a$1.#MEDIA_RULE_PREFERS.test(mediaRule.media.mediaText)) {
+      return;
+    }
+    const rules = mediaRule.cssRules;
+    for (let i = 0; i < rules.length; i++) {
+      const rule = rules[i];
+      switch (rule.constructor.name) {
+        case "CSSStyleRule":
+          allStyleRules.push(rule);
+          break;
+      }
+    }
+  }
+  /**
+   * Processes all collected `CSSStyleRules`.
+   *
+   * @param   allStyleRules - Style rules to parse.
+   *
+   * @param   opts - ProcessOptions.
+   */
+  #processStyleRules(allStyleRules, opts) {
+    for (let i = 0; i < allStyleRules.length; i++) {
+      const styleRule = allStyleRules[i];
+      const selectorParts = StyleParse.selectorText(styleRule.selectorText, opts);
+      if (selectorParts.length) {
+        const result = StyleParse.cssText(styleRule.style.cssText);
+        if (opts.urlRewrite && opts.baseHref && _a$1.#URL_DETECTION_REGEX.test(styleRule.style.cssText)) {
+          this.#processStyleRuleUrls(result, opts);
+        }
+        for (let j = selectorParts.length; --j >= 0; ) {
+          const part = selectorParts[j];
+          if (this.#sheetMap.has(part)) {
+            Object.assign(this.#sheetMap.get(part), result);
+          } else {
+            this.#sheetMap.set(part, result);
+          }
+        }
+      }
+    }
+  }
+  /**
+   * Resolve relative `url(...)` references in CSS property values based on the stylesheet origin.
+   *
+   * This method rewrites relative paths in `url(...)` to absolute paths (IE `/assets/img.png`) using the
+   * CSSStyleSheet `href` when available or falling back to the provided `baseHref` for inline stylesheets.
+   *
+   * @param result - Parsed CSS property key-value map.
+   *
+   * @param opts - Processing options.
+   */
+  #processStyleRuleUrls(result, opts) {
+    const baseHref = opts.baseHref;
+    for (const key in result) {
+      let value = result[key];
+      if (value.indexOf("url(") === -1) {
+        continue;
+      }
+      if (!_a$1.#URL_DETECTION_REGEX.test(value)) {
+        continue;
+      }
+      let modified = false;
+      value = value.replace(_a$1.#URL_REGEX, (match, quote, relPath) => {
+        try {
+          const absPath = new URL(relPath, baseHref).pathname;
+          modified = true;
+          return `url(${quote}${absPath}${quote})`;
+        } catch {
+          return match;
+        }
+      });
+      if (modified) {
+        result[key] = value;
+      }
+    }
+  }
+  /**
+   * Resolves intermediate CSS variables defined in the `result` style properties object with data from the given
+   * `resolve` selector(s).
+   *
+   * @param   result - Copy of source selector style properties to resolve.
+   *
+   * @param   resolve - Parent CSS variable resolution selectors.
+   *
+   * @param   resolveData - Resolution data.
+   */
+  #resolve(result, resolve, resolveData) {
+    const parentVars = {};
+    for (let i = 0; i < resolve.length; i++) {
+      const entry = resolve[i];
+      const parent = this.get(entry);
+      if (!isObject(parent)) {
+        resolveData.parentNotFound.add(entry);
+        continue;
+      }
+      for (const key in parent) {
+        if (key.startsWith("--")) {
+          parentVars[key] = parent[key];
+        }
+      }
+    }
+    const cssVars = new ResolveVars(result, parentVars, resolveData);
+    if (!cssVars.unresolvedCount) {
+      return;
+    }
+    for (const key in parentVars) {
+      cssVars.set(key, parentVars[key]);
+    }
+    Object.assign(result, cssVars.resolved);
+  }
+}
+_a$1 = StyleSheetResolve;
+class ResolveVars {
+  /**
+   * Detect CSS variable.
+   */
+  static #DETECT_CSS_VAR_REGEX = /--[\w-]+/g;
+  /**
+   * Capture CSS variable fallbacks.
+   */
+  static #CSS_VAR_FALLBACK_REGEX = /^var\((?<varName>--[\w-]+)\s*,\s*(?<fallback>.+?)\)$/;
+  /**
+   * Replace CSS variable fallbacks.
+   */
+  static #CSS_VAR_FALLBACK_REPLACE_REGEX = /var\((--[\w-]+)(?:\s*,\s*[^()]*?)?\)/g;
+  /**
+   * Closed CSS variable.
+   */
+  static #CSS_VAR_REGEX = /^var\((--[\w-]+)\)$/;
+  /**
+   * Open CSS variable.
+   */
+  static #CSS_VAR_PARTIAL_REGEX = /^var\((--[\w-]+)/;
+  /**
+   * Prevent deep fallback recursion.
+   */
+  static #MAX_FALLBACK_DEPTH = 10;
+  /**
+   * Initial style properties w/ CSS variables to track.
+   */
+  #propMap = /* @__PURE__ */ new Map();
+  /**
+   * Reverse lookup for CSS variable name to associated property.
+   */
+  #varToProp = /* @__PURE__ */ new Map();
+  /**
+   * Resolved CSS variable from parent selector properties.
+   */
+  #varResolved = /* @__PURE__ */ new Map();
+  #parentVars;
+  #resolveData;
+  /**
+   * @param initial - Initial style entry to resolve.
+   *
+   * @param parentVars - All parent resolution vars.
+   *
+   * @param resolveData - Resolution data.
+   */
+  constructor(initial, parentVars, resolveData) {
+    this.#parentVars = parentVars;
+    this.#resolveData = resolveData;
+    for (const prop in initial) {
+      const value = initial[prop];
+      let match;
+      _b.#DETECT_CSS_VAR_REGEX.lastIndex = 0;
+      let found = false;
+      while (match = _b.#DETECT_CSS_VAR_REGEX.exec(value)) {
+        const entry = match[0];
+        if (!this.#varToProp.has(entry))
+          this.#varToProp.set(entry, /* @__PURE__ */ new Set());
+        this.#varToProp.get(entry).add(prop);
+        found = true;
+      }
+      if (found)
+        this.#propMap.set(prop, value);
+    }
+  }
+  /**
+   * Resolves properties in `#propMap` by substituting var(...) expressions using resolved values in #varResolved. If
+   * no resolution is available, attempts to preserve fallback expressions in their original var(...) form.
+   *
+   * Supports chained fallbacks like: var(--a, var(--b, var(--c, red))) and resolving variables in statements like
+   * `calc(1rem + var(--x))`.
+   *
+   * @returns All fields that have been resolved.
+   */
+  get resolved() {
+    const result = {};
+    for (const entry of this.#varToProp.keys()) {
+      const props = this.#varToProp.get(entry);
+      const varResolved = this.#varResolved.get(entry);
+      if (!props) {
+        continue;
+      }
+      if (varResolved) {
+        for (const prop of props) {
+          let value = this.#propMap.get(prop);
+          if (value.indexOf(`var(${entry}`) !== -1) {
+            value = value.replace(_b.#CSS_VAR_FALLBACK_REPLACE_REGEX, (match) => {
+              const varName = match.match(_b.#CSS_VAR_PARTIAL_REGEX)?.[1];
+              const resolved = this.#varResolved.get(varName);
+              return resolved ?? match;
+            });
+          }
+          this.#propMap.set(prop, value);
+          result[prop] = value;
+        }
+      } else {
+        for (const prop of props) {
+          const value = this.#propMap.get(prop);
+          if (value.indexOf(`var(${entry}`) === -1) {
+            continue;
+          }
+          const fallback = this.#resolveNestedFallback(value);
+          this.#propMap.set(prop, fallback);
+          result[prop] = fallback;
+        }
+      }
+    }
+    return result;
+  }
+  /**
+   * @returns Unresolved field count.
+   */
+  get unresolvedCount() {
+    let count = 0;
+    for (const entry of this.#varToProp.keys()) {
+      if (!this.#varResolved.has(entry)) {
+        count++;
+      }
+    }
+    return count;
+  }
+  /**
+   * Sets the parent selector defined CSS variable for resolution.
+   *
+   * @param name - CSS variable name
+   *
+   * @param value - Value of target CSS variable.
+   */
+  set(name, value) {
+    if (typeof value !== "string" || value.length === 0) {
+      return;
+    }
+    if (this.#resolveData.warnCycles) {
+      this.#setCycleWarn(name, value);
+    } else {
+      if (this.#varToProp.has(name) && !this.#varResolved.has(name)) {
+        this.#varResolved.set(name, value);
+      }
+    }
+  }
+  // Internal Implementation ----------------------------------------------------------------------------------------
+  /**
+   * Performs DFS traversal to detect cycles in CSS variable resolution. Tracks the resolution path and emits a
+   * warning if a cycle is found. Each affected property is reported once with its originating chain.
+   *
+   * @param   value - Value of target CSS variable.
+   *
+   * @param   visited - Visited CSS variables.
+   *
+   * @param   seenCycles - Dedupe cyclic dependency warnings.
+   *
+   * @returns Resolution result or undefined.
+   */
+  #resolveCycleWarn(value, visited, seenCycles) {
+    const match = value.match(_b.#CSS_VAR_REGEX);
+    if (!match) {
+      return value;
+    }
+    const next = match[1];
+    if (visited.has(next)) {
+      const cycleChain = [...visited, next];
+      const cycleKey = cycleChain.join("→");
+      if (!seenCycles.has(cycleKey)) {
+        seenCycles.add(cycleKey);
+        const affected = cycleChain.flatMap((varName) => Array.from(this.#varToProp.get(varName) ?? []).map((prop) => `- ${prop} (via ${varName})`));
+        if (affected.length > 0) {
+          console.warn(`[TyphonJS Runtime] StyleSheetResolve - CSS variable cyclic dependency detected: ${cycleChain.join(" → ")}
+Affected properties:
+${affected.join("\n")}`);
+        }
+      }
+      return void 0;
+    }
+    visited.add(next);
+    const nextValue = this.#varResolved.get(next) ?? this.#parentVars[next];
+    if (typeof nextValue !== "string") {
+      return void 0;
+    }
+    return this.#resolveCycleWarn(nextValue, visited, seenCycles);
+  }
+  /**
+   * Resolve fallback chains of the form: var(--a, var(--b, ...))
+   * - Only replaces the top-level var if it is resolved.
+   * - Leaves fallback intact if unresolved.
+   * - Recursively evaluates nested fallbacks if they are var(...).
+   * - Limits recursion depth to prevent cycles or stack overflow.
+   *
+   * @param   expr - CSS var expression to resolve.
+   *
+   * @param   depth - Recursion guard
+   *
+   * @returns Nested fallback resolution result.
+   */
+  #resolveNestedFallback(expr, depth = 0) {
+    if (depth > _b.#MAX_FALLBACK_DEPTH) {
+      return expr;
+    }
+    const match = expr.match(_b.#CSS_VAR_FALLBACK_REGEX);
+    if (!match?.groups) {
+      return expr;
+    }
+    const { varName, fallback } = match.groups;
+    const resolved = this.#varResolved.get(varName);
+    if (resolved !== void 0) {
+      return resolved;
+    }
+    const fallbackTrimmed = fallback.trim();
+    if (fallbackTrimmed.startsWith("var(")) {
+      let nested = this.#resolveNestedFallback(fallbackTrimmed, depth + 1);
+      const innerMatch = nested.match(_b.#CSS_VAR_REGEX);
+      if (innerMatch) {
+        const innerResolved = this.#varResolved.get(innerMatch[1]);
+        if (innerResolved !== void 0) {
+          nested = innerResolved;
+        }
+      }
+      return `var(${varName}, ${nested})`;
+    }
+    return `var(${varName}, ${fallbackTrimmed})`;
+  }
+  /**
+   * Sets the parent selector defined CSS variable for resolution with additional cyclic dependency metrics.
+   *
+   * @param   name - CSS variable name
+   *
+   * @param   value - Value of target CSS variable.
+   */
+  #setCycleWarn(name, value) {
+    const resolved = this.#resolveCycleWarn(value, /* @__PURE__ */ new Set([name]), this.#resolveData.seenCycles);
+    if (resolved !== void 0 && this.#varToProp.has(name) && !this.#varResolved.has(name)) {
+      this.#varResolved.set(name, resolved);
+    }
+  }
+}
+_b = ResolveVars;
+function backInOut(t) {
+  const s = 1.70158 * 1.525;
+  if ((t *= 2) < 1) return 0.5 * (t * t * ((s + 1) * t - s));
+  return 0.5 * ((t -= 2) * t * ((s + 1) * t + s) + 2);
+}
+function backIn(t) {
+  const s = 1.70158;
+  return t * t * ((s + 1) * t - s);
+}
+function backOut(t) {
+  const s = 1.70158;
+  return --t * t * ((s + 1) * t + s) + 1;
+}
+function bounceOut(t) {
+  const a = 4 / 11;
+  const b = 8 / 11;
+  const c = 9 / 10;
+  const ca = 4356 / 361;
+  const cb = 35442 / 1805;
+  const cc = 16061 / 1805;
+  const t2 = t * t;
+  return t < a ? 7.5625 * t2 : t < b ? 9.075 * t2 - 9.9 * t + 3.4 : t < c ? ca * t2 - cb * t + cc : 10.8 * t * t - 20.52 * t + 10.72;
+}
+function bounceInOut(t) {
+  return t < 0.5 ? 0.5 * (1 - bounceOut(1 - t * 2)) : 0.5 * bounceOut(t * 2 - 1) + 0.5;
+}
+function bounceIn(t) {
+  return 1 - bounceOut(1 - t);
+}
+function circInOut(t) {
+  if ((t *= 2) < 1) return -0.5 * (Math.sqrt(1 - t * t) - 1);
+  return 0.5 * (Math.sqrt(1 - (t -= 2) * t) + 1);
+}
+function circIn(t) {
+  return 1 - Math.sqrt(1 - t * t);
+}
+function circOut(t) {
+  return Math.sqrt(1 - --t * t);
+}
+function cubicInOut(t) {
+  return t < 0.5 ? 4 * t * t * t : 0.5 * Math.pow(2 * t - 2, 3) + 1;
+}
+function cubicIn(t) {
+  return t * t * t;
+}
+function cubicOut(t) {
+  const f = t - 1;
+  return f * f * f + 1;
+}
+function elasticInOut(t) {
+  return t < 0.5 ? 0.5 * Math.sin(13 * Math.PI / 2 * 2 * t) * Math.pow(2, 10 * (2 * t - 1)) : 0.5 * Math.sin(-13 * Math.PI / 2 * (2 * t - 1 + 1)) * Math.pow(2, -10 * (2 * t - 1)) + 1;
+}
+function elasticIn(t) {
+  return Math.sin(13 * t * Math.PI / 2) * Math.pow(2, 10 * (t - 1));
+}
+function elasticOut(t) {
+  return Math.sin(-13 * (t + 1) * Math.PI / 2) * Math.pow(2, -10 * t) + 1;
+}
+function expoInOut(t) {
+  return t === 0 || t === 1 ? t : t < 0.5 ? 0.5 * Math.pow(2, 20 * t - 10) : -0.5 * Math.pow(2, 10 - t * 20) + 1;
+}
+function expoIn(t) {
+  return t === 0 ? t : Math.pow(2, 10 * (t - 1));
+}
+function expoOut(t) {
+  return t === 1 ? t : 1 - Math.pow(2, -10 * t);
+}
+function quadInOut(t) {
+  t /= 0.5;
+  if (t < 1) return 0.5 * t * t;
+  t--;
+  return -0.5 * (t * (t - 2) - 1);
+}
+function quadIn(t) {
+  return t * t;
+}
+function quadOut(t) {
+  return -t * (t - 2);
+}
+function quartInOut(t) {
+  return t < 0.5 ? 8 * Math.pow(t, 4) : -8 * Math.pow(t - 1, 4) + 1;
+}
+function quartIn(t) {
+  return Math.pow(t, 4);
+}
+function quartOut(t) {
+  return Math.pow(t - 1, 3) * (1 - t) + 1;
+}
+function quintInOut(t) {
+  if ((t *= 2) < 1) return 0.5 * t * t * t * t * t;
+  return 0.5 * ((t -= 2) * t * t * t * t + 2);
+}
+function quintIn(t) {
+  return t * t * t * t * t;
+}
+function quintOut(t) {
+  return --t * t * t * t * t + 1;
+}
+function sineInOut(t) {
+  return -0.5 * (Math.cos(Math.PI * t) - 1);
+}
+function sineIn(t) {
+  const v = Math.cos(t * Math.PI * 0.5);
+  if (Math.abs(v) < 1e-14) return 1;
+  else return 1 - v;
+}
+function sineOut(t) {
+  return Math.sin(t * Math.PI / 2);
+}
+const svelteEasingFunc = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  backIn,
+  backInOut,
+  backOut,
+  bounceIn,
+  bounceInOut,
+  bounceOut,
+  circIn,
+  circInOut,
+  circOut,
+  cubicIn,
+  cubicInOut,
+  cubicOut,
+  elasticIn,
+  elasticInOut,
+  elasticOut,
+  expoIn,
+  expoInOut,
+  expoOut,
+  linear: identity,
+  quadIn,
+  quadInOut,
+  quadOut,
+  quartIn,
+  quartInOut,
+  quartOut,
+  quintIn,
+  quintInOut,
+  quintOut,
+  sineIn,
+  sineInOut,
+  sineOut
+}, Symbol.toStringTag, { value: "Module" }));
 const easingFunc = svelteEasingFunc;
 function getEasingFunc(easingRef, options) {
   if (typeof easingRef === "function") {
@@ -2901,6 +4659,12 @@ class A11yHelper {
    * @type {boolean}
    */
   static #globalDebug = false;
+  /**
+   * @private
+   */
+  constructor() {
+    throw new Error("A11yHelper constructor: This is a static class and should not be constructed.");
+  }
   /**
    * @returns {boolean} Global debugging enabled.
    */
@@ -2938,6 +4702,9 @@ class A11yHelper {
    */
   static applyFocusSource(options) {
     if (!isObject(options)) {
+      if (this.debug) {
+        console.debug(`A11yHelper.applyFocusSource debug - options is not an object: `, options);
+      }
       return;
     }
     const focusOpts = isObject(options?.focusSource) ? options.focusSource : options;
@@ -3135,10 +4902,10 @@ class A11yHelper {
         `A11yHelper.getFocusSource error: 'event' is not a KeyboardEvent, MouseEvent, or PointerEvent.`
       );
     }
-    if (x !== void 0 && !Number.isInteger(x)) {
+    if (x !== void 0 && !Number.isFinite(x)) {
       throw new TypeError(`A11yHelper.getFocusSource error: 'x' is not a number.`);
     }
-    if (y !== void 0 && !Number.isInteger(y)) {
+    if (y !== void 0 && !Number.isFinite(y)) {
       throw new TypeError(`A11yHelper.getFocusSource error: 'y' is not a number.`);
     }
     let targetEl;
@@ -3223,6 +4990,9 @@ class A11yHelper {
   /**
    * Tests if the given element is focusable.
    *
+   * Note: A special case for focus testing occurs when an element has `tabindex` of `-1` _and_ the
+   * `tjs-a11y-focusable` class.
+   *
    * @param {unknown} el - Element to test.
    *
    * @param {object} [options] - Optional parameters.
@@ -3246,7 +5016,7 @@ class A11yHelper {
     const contenteditableAttr = el.getAttribute("contenteditable");
     const contenteditableFocusable = typeof contenteditableAttr === "string" && (contenteditableAttr === "" || contenteditableAttr === "true");
     const tabindexAttr = globalThis.parseInt(el.getAttribute("tabindex"));
-    const tabindexFocusable = Number.isInteger(tabindexAttr) && tabindexAttr >= 0;
+    const tabindexFocusable = Number.isInteger(tabindexAttr) && (tabindexAttr >= 0 || tabindexAttr === -1 && el.classList.contains("tjs-a11y-focusable"));
     if (contenteditableFocusable || tabindexFocusable || CrossWindow.isFocusableHTMLElement(el)) {
       if (anchorHref && !tabindexFocusable && CrossWindow.isHTMLAnchorElement(el) && typeof el.getAttribute("href") !== "string") {
         return false;
@@ -6791,7 +8561,7 @@ function draggable(node, { position, enabled = true, button = 0, storeDragging =
   };
   function activateListeners() {
     node.addEventListener(...handlers.dragDown);
-    node.classList.add("draggable");
+    node.classList.add("tjs-draggable");
   }
   function removeListeners() {
     if (typeof storeDragging?.set === "function") {
@@ -6800,7 +8570,7 @@ function draggable(node, { position, enabled = true, button = 0, storeDragging =
     node.removeEventListener(...handlers.dragDown);
     node.removeEventListener(...handlers.dragMove);
     node.removeEventListener(...handlers.dragUp);
-    node.classList.remove("draggable");
+    node.classList.remove("tjs-draggable");
   }
   if (enabled) {
     activateListeners();
@@ -7172,7 +8942,7 @@ class AnimationManager {
   /**
    * Provides the `this` context for {@link AnimationManager.animate} to be scheduled on rAF.
    */
-  static #animateBound = (timeFrame) => this.animate(timeFrame);
+  static #animateBound = AnimationManager.animate.bind(AnimationManager);
   /**
    */
   static #pendingList = [];
@@ -7247,7 +9017,7 @@ class AnimationManager {
     }
     for (let cntr = AnimationManager.#activeList.length; --cntr >= 0; ) {
       const data = AnimationManager.#activeList[cntr];
-      if (data.cancelled || data.el !== void 0 && !data.el.isConnected) {
+      if (data.cancelled) {
         AnimationManager.#activeList.splice(cntr, 1);
         this.#cleanupData(data);
         continue;
@@ -7282,7 +9052,7 @@ class AnimationManager {
   static cancel(position, cancelFn = AnimationManager.cancelFn) {
     for (let cntr = AnimationManager.#activeList.length; --cntr >= 0; ) {
       const data = AnimationManager.#activeList[cntr];
-      if (data.position === position && cancelFn(data)) {
+      if (data.cancelable && data.position === position && cancelFn(data)) {
         AnimationManager.#activeList.splice(cntr, 1);
         data.cancelled = true;
         this.#cleanupData(data);
@@ -7290,7 +9060,7 @@ class AnimationManager {
     }
     for (let cntr = AnimationManager.#pendingList.length; --cntr >= 0; ) {
       const data = AnimationManager.#pendingList[cntr];
-      if (data.position === position && cancelFn(data)) {
+      if (data.cancelable && data.position === position && cancelFn(data)) {
         AnimationManager.#pendingList.splice(cntr, 1);
         data.cancelled = true;
         this.#cleanupData(data);
@@ -7447,8 +9217,6 @@ class TJSPositionData {
    * @param [opts.width] -
    *
    * @param [opts.zIndex] -
-   *
-   * @param [opts.rotation] - Alias for `rotateZ`.
    */
   constructor({ height = null, left = null, maxHeight = null, maxWidth = null, minHeight = null, minWidth = null, rotateX = null, rotateY = null, rotateZ = null, scale = null, translateX = null, translateY = null, translateZ = null, top = null, transformOrigin = null, width = null, zIndex = null } = {}) {
     this.height = height;
@@ -7974,6 +9742,8 @@ class TJSPositionStyleCache {
       resizeContentWidth: propertyStore(storeResizeObserved, "contentWidth"),
       resizeObserved: storeResizeObserved,
       resizeObservable: writable(false),
+      resizeObservableHeight: writable(false),
+      resizeObservableWidth: writable(false),
       resizeOffsetHeight: propertyStore(storeResizeObserved, "offsetHeight"),
       resizeOffsetWidth: propertyStore(storeResizeObserved, "offsetWidth")
     };
@@ -8064,12 +9834,15 @@ class TJSTransforms {
   #orderList = [];
   /**
    * Defines the keys of TJSPositionData that are transform keys.
+   *
+   * Note: `rotateZ` is the most likely transform applied in 2D context. Putting it first makes `hasTransform` slightly
+   * quicker.
    */
   static #transformKeys = Object.freeze([
-    "rotateX",
-    "rotateY",
     "rotateZ",
     "scale",
+    "rotateX",
+    "rotateY",
     "translateX",
     "translateY",
     "translateZ"
@@ -8645,8 +10418,8 @@ class TJSTransforms {
    * @returns Whether the given TJSPositionData has transforms.
    */
   hasTransform(data) {
-    for (const key of TJSTransforms.#transformKeys) {
-      if (Number.isFinite(data[key])) {
+    for (let cntr = 0; cntr < TJSTransforms.#transformKeys.length; cntr++) {
+      if (Number.isFinite(data[TJSTransforms.#transformKeys[cntr]])) {
         return true;
       }
     }
@@ -8788,6 +10561,8 @@ class AnimationScheduler {
    *
    * @param el -
    *
+   * @param cancelable -
+   *
    * @param delay -
    *
    * @param ease -
@@ -8802,7 +10577,7 @@ class AnimationScheduler {
    *
    * @returns An AnimationControl instance or null if none created.
    */
-  static #addAnimation(position, initial, destination, duration, el, delay, ease, interpolate = lerp, transformOrigin, transformOriginInitial, cleanup) {
+  static #addAnimation(position, initial, destination, duration, el, cancelable, delay, ease, interpolate = lerp, transformOrigin, transformOriginInitial, cleanup) {
     TJSPositionDataUtil.setNumericDefaults(initial);
     TJSPositionDataUtil.setNumericDefaults(destination);
     for (const key in initial) {
@@ -8818,6 +10593,7 @@ class AnimationScheduler {
     const animationData = {
       active: true,
       cleanup,
+      cancelable,
       cancelled: false,
       control: void 0,
       current: 0,
@@ -8866,7 +10642,7 @@ class AnimationScheduler {
     if (parent !== void 0 && typeof parent?.options?.positionable === "boolean" && !parent?.options?.positionable) {
       return null;
     }
-    let { delay = 0, duration = 1, ease = "cubicOut", strategy, transformOrigin } = options;
+    let { cancelable = true, delay = 0, duration = 1, ease = "cubicOut", strategy, transformOrigin } = options;
     if (strategy !== void 0) {
       if (this.#handleStrategy(position, strategy) === null) {
         return null;
@@ -8897,7 +10673,7 @@ class AnimationScheduler {
       }
     }
     ConvertStringData.process(initial, this.#data, el);
-    return this.#addAnimation(position, initial, destination, duration, el, delay, ease, lerp, transformOrigin, transformOriginInitial, cleanup);
+    return this.#addAnimation(position, initial, destination, duration, el, cancelable, delay, ease, lerp, transformOrigin, transformOriginInitial, cleanup);
   }
   /**
    * Provides a tween from given position data to the given position.
@@ -8925,7 +10701,7 @@ class AnimationScheduler {
     if (parent !== void 0 && typeof parent?.options?.positionable === "boolean" && !parent?.options?.positionable) {
       return null;
     }
-    let { delay = 0, duration = 1, ease = "cubicOut", strategy, transformOrigin } = options;
+    let { cancelable = true, delay = 0, duration = 1, ease = "cubicOut", strategy, transformOrigin } = options;
     if (strategy !== void 0) {
       if (this.#handleStrategy(position, strategy) === null) {
         return null;
@@ -8961,7 +10737,7 @@ class AnimationScheduler {
     }
     ConvertStringData.process(initial, this.#data, el);
     ConvertStringData.process(destination, this.#data, el);
-    return this.#addAnimation(position, initial, destination, duration, el, delay, ease, lerp, transformOrigin, transformOriginInitial, cleanup);
+    return this.#addAnimation(position, initial, destination, duration, el, cancelable, delay, ease, lerp, transformOrigin, transformOriginInitial, cleanup);
   }
   /**
    * Provides a tween to given position data from the current position.
@@ -8984,7 +10760,7 @@ class AnimationScheduler {
     if (parent !== void 0 && typeof parent?.options?.positionable === "boolean" && !parent?.options?.positionable) {
       return null;
     }
-    let { delay = 0, duration = 1, ease = "cubicOut", strategy, transformOrigin } = options;
+    let { cancelable = true, delay = 0, duration = 1, ease = "cubicOut", strategy, transformOrigin } = options;
     if (strategy !== void 0) {
       if (this.#handleStrategy(position, strategy) === null) {
         return null;
@@ -9015,7 +10791,7 @@ class AnimationScheduler {
       }
     }
     ConvertStringData.process(destination, this.#data, el);
-    return this.#addAnimation(position, initial, destination, duration, el, delay, ease, lerp, transformOrigin, transformOriginInitial, cleanup);
+    return this.#addAnimation(position, initial, destination, duration, el, cancelable, delay, ease, lerp, transformOrigin, transformOriginInitial, cleanup);
   }
   // Internal implementation ----------------------------------------------------------------------------------------
   /**
@@ -9176,6 +10952,7 @@ class AnimationAPIImpl {
     const newData = Object.assign({}, initial);
     const animationData = {
       active: true,
+      cancelable: true,
       cancelled: false,
       control: void 0,
       current: 0,
@@ -10129,13 +11906,15 @@ class PositionStateAPI {
    *
    * @param [options.animateTo=false] - Animate to restore data.
    *
+   * @param [options.cancelable=true] - When false, any animation can not be cancelled.
+   *
    * @param [options.duration=0.1] - Duration in seconds.
    *
    * @param [options.ease='linear'] - Easing function name or function.
    *
    * @returns Any saved position data.
    */
-  restore({ name, remove = false, properties, silent = false, async = false, animateTo = false, duration = 0.1, ease = "linear" }) {
+  restore({ name, remove = false, properties, silent = false, async = false, animateTo = false, cancelable = true, duration = 0.1, ease = "linear" }) {
     if (typeof name !== "string") {
       throw new TypeError(`TJSPosition - restore error: 'name' is not a string.`);
     }
@@ -10163,9 +11942,9 @@ class PositionStateAPI {
           this.#position.transformOrigin = data.transformOrigin;
         }
         if (async) {
-          return this.#position.animate.to(data, { duration, ease }).finished.then(() => dataSaved);
+          return this.#position.animate.to(data, { cancelable, duration, ease }).finished.then(() => dataSaved);
         } else {
-          this.#position.animate.to(data, { duration, ease });
+          this.#position.animate.to(data, { cancelable, duration, ease });
         }
       } else {
         this.#position.set(data);
@@ -10832,9 +12611,6 @@ class UpdateElementManager {
       entry[0] = void 0;
       entry[1] = void 0;
       updateData.queued = false;
-      if (!el.isConnected) {
-        continue;
-      }
       if (updateData.options.ortho) {
         UpdateElementManager.#updateElementOrtho(el, updateData);
       } else {
@@ -10856,9 +12632,6 @@ class UpdateElementManager {
    * @param updateData - An UpdateElementData instance.
    */
   static immediate(el, updateData) {
-    if (!el.isConnected) {
-      return;
-    }
     if (updateData.options.ortho) {
       UpdateElementManager.#updateElementOrtho(el, updateData);
     } else {
@@ -11032,6 +12805,16 @@ class TJSPosition {
    */
   #resizeObservable = false;
   /**
+   * Tracks the current state if this position instance is a candidate for resize observation by the `resizeObserver`
+   * action. This is `true` when `height` is `auto` or `inherit`.
+   */
+  #resizeObservableHeight = false;
+  /**
+   * Tracks the current state if this position instance is a candidate for resize observation by the `resizeObserver`
+   * action. This is `true` when `width` is `auto` or `inherit`.
+   */
+  #resizeObservableWidth = false;
+  /**
    */
   #stores;
   /**
@@ -11124,7 +12907,7 @@ class TJSPosition {
   }
   /**
    * Returns a duplicate of a given position instance copying any options and validators. The position parent is not
-   * copied and a new one must be set manually via the {@link TJSPosition.parent} setter.
+   * copied, and a new one must be set manually via the {@link TJSPosition.parent} setter.
    *
    * @param position - A position instance.
    *
@@ -11143,10 +12926,10 @@ class TJSPosition {
     return newPosition;
   }
   /**
-   * @param [parentOrOptions] - A  potential parent element or object w/ `elementTarget` accessor. You may also forego
-   *        setting the parent and pass in the options object.
+   * @param [parentOrOptions] - A potential parent element or object w/ `elementTarget` accessor. You may also forego
+   *        setting the parent and pass in the configuration options object.
    *
-   * @param [options] - The options object.
+   * @param [options] - The configuration options object.
    */
   constructor(parentOrOptions, options) {
     if (isPlainObject(parentOrOptions)) {
@@ -11189,6 +12972,8 @@ class TJSPosition {
       resizeContentHeight: { subscribe: this.#styleCache.stores.resizeContentHeight.subscribe },
       resizeContentWidth: { subscribe: this.#styleCache.stores.resizeContentWidth.subscribe },
       resizeObservable: { subscribe: this.#styleCache.stores.resizeObservable.subscribe },
+      resizeObservableHeight: { subscribe: this.#styleCache.stores.resizeObservableHeight.subscribe },
+      resizeObservableWidth: { subscribe: this.#styleCache.stores.resizeObservableWidth.subscribe },
       resizeOffsetHeight: { subscribe: this.#styleCache.stores.resizeOffsetHeight.subscribe },
       resizeOffsetWidth: { subscribe: this.#styleCache.stores.resizeOffsetWidth.subscribe },
       transform: { subscribe: updateData.storeTransform.subscribe },
@@ -11275,6 +13060,24 @@ class TJSPosition {
     return this.#parent;
   }
   /**
+   * Returns the resize observable state which is `true` whenever `width` or `height` is `auto` or `inherit`.
+   */
+  get resizeObservable() {
+    return this.#resizeObservable;
+  }
+  /**
+   * Returns the resize observable state which is `true` whenever `height` is `auto` or `inherit`.
+   */
+  get resizeObservableHeight() {
+    return this.#resizeObservableHeight;
+  }
+  /**
+   * Returns the resize observable state which is `true` whenever `width` is `auto` or `inherit`.
+   */
+  get resizeObservableWidth() {
+    return this.#resizeObservableWidth;
+  }
+  /**
    * Returns the state API.
    *
    * @returns TJSPosition state API.
@@ -11309,13 +13112,18 @@ class TJSPosition {
   /**
    * Sets the enabled state.
    *
-   * @param enabled - New enabled state.
+   * @param enabled - Newly enabled state.
    */
   set enabled(enabled) {
     if (typeof enabled !== "boolean") {
       throw new TypeError(`'enabled' is not a boolean.`);
     }
-    this.#enabled = enabled;
+    if (this.#enabled !== enabled) {
+      this.#enabled = enabled;
+      if (enabled) {
+        this.set(this.#data);
+      }
+    }
   }
   /**
    * Sets the associated {@link TJSPosition.PositionParent} instance. Resets the style cache and default data.
@@ -11553,16 +13361,16 @@ class TJSPosition {
     this.#stores.zIndex.set(zIndex);
   }
   /**
-   * Assigns current position data to given object `data` object. By default, `null` position data is not assigned.
-   * Other options allow configuration of the data assigned including setting default numeric values for any properties
-   * that are null.
+   * Assigns current position data to the given object `data` object. By default, `null` position data is not assigned.
+   * Other options allow configuration of the data assigned, including setting default numeric values for any
+   * properties that are null.
    *
    * @param [data] - Target to assign current position data.
    *
    * @param [options] - Defines options for specific keys and substituting null for numeric default values. By
    *        default, nullable keys are included.
    *
-   * @returns Passed in object with current position data.
+   * @returns Any passed in data object with current position data.
    */
   get(data = {}, options = {}) {
     const keys = options?.keys;
@@ -11615,7 +13423,7 @@ class TJSPosition {
    * The initial set call with a target element will always set width / height as this is necessary for correct
    * calculations.
    *
-   * When a target element is present updated styles are applied after validation. To modify the behavior of set
+   * When a target element is present, updated styles are applied after validation. To modify the behavior of set,
    * implement one or more validator functions and add them via the validator API available from
    * {@link TJSPosition.validators}.
    *
@@ -11650,7 +13458,7 @@ class TJSPosition {
     const data = this.#data;
     const transforms = this.#transforms;
     const targetEl = A11yHelper.isFocusTarget(parent) ? parent : parent?.elementTarget;
-    const el = A11yHelper.isFocusTarget(targetEl) && targetEl.isConnected ? targetEl : void 0;
+    const el = A11yHelper.isFocusTarget(targetEl) ? targetEl : void 0;
     const changeSet = this.#positionChangeSet;
     const styleCache = this.#styleCache;
     if (el) {
@@ -11785,6 +13593,14 @@ class TJSPosition {
       this.#resizeObservable = resizeObservable;
       this.#styleCache.stores.resizeObservable.set(resizeObservable);
     }
+    if (this.#resizeObservableHeight !== heightIsObservable) {
+      this.#resizeObservableHeight = heightIsObservable;
+      this.#styleCache.stores.resizeObservableHeight.set(heightIsObservable);
+    }
+    if (this.#resizeObservableWidth !== widthIsObservable) {
+      this.#resizeObservableWidth = widthIsObservable;
+      this.#styleCache.stores.resizeObservableWidth.set(widthIsObservable);
+    }
     if (el) {
       const defaultData = this.#state.getDefault();
       if (!isObject(defaultData)) {
@@ -11888,7 +13704,7 @@ class TJSPosition {
     translateY,
     translateZ,
     zIndex,
-    // Aliased parameters
+    // Aliased parameters.
     rotation,
     ...rest
   }, parent, el, styleCache) {
@@ -12003,6 +13819,178 @@ class TJSPosition {
   }
 }
 _a = TJSPosition;
+class CQPositionValidate {
+  /**
+   * Associated TJSPosition.
+   */
+  #position;
+  /**
+   * Stores the subscribers.
+   */
+  #subscribers = [];
+  /**
+   * Unsubscriber when subscribed to backing SvelteSet.
+   */
+  #unsubscribe = [];
+  #resizeObservableHeight = false;
+  #resizeObservableWidth = false;
+  #updateStateBound;
+  /**
+   * @param [position] - Associated TJSPosition instance.
+   */
+  constructor(position) {
+    this.#updateStateBound = this.#updateState.bind(this);
+    if (position) {
+      this.setPosition(position);
+    }
+  }
+  /**
+   * Manually destroy and cleanup associations to any subscribers and TJSPosition instance.
+   */
+  destroy() {
+    this.#cleanup();
+  }
+  /**
+   * Returns the associated TJSPosition instance.
+   */
+  getPosition() {
+    return this.#deref();
+  }
+  /**
+   * Set a new TJSPosition instance to monitor.
+   *
+   * @param position - New TJSPosition instance to associate.
+   */
+  setPosition(position) {
+    const current = this.#deref();
+    if (position === current) {
+      return;
+    }
+    this.#cleanup();
+    this.#position = void 0;
+    if (position instanceof TJSPosition) {
+      this.#position = new WeakRef(position);
+      if (this.#subscribers.length) {
+        this.#unsubscribe.push(position.stores.resizeObservableHeight.subscribe(this.#updateStateBound));
+        this.#unsubscribe.push(position.stores.resizeObservableWidth.subscribe(this.#updateStateBound));
+      }
+    }
+  }
+  /**
+   * Returns the serialized state tracking supported container types.
+   */
+  toJSON() {
+    return {
+      inlineSize: !this.#resizeObservableWidth,
+      normal: true,
+      size: !this.#resizeObservableWidth && !this.#resizeObservableHeight
+    };
+  }
+  /**
+   * @param cqType - The container query type to validate against current associated {@link TJSPosition} state.
+   *
+   * @returns Whether the browser and associated TJSPosition current state supports the requested container query type.
+   */
+  validate(cqType) {
+    if (!BrowserSupports.containerQueries) {
+      return false;
+    }
+    const hasPosition = this.#deref() !== void 0;
+    switch (cqType) {
+      case "inline-size":
+        return hasPosition && !this.#resizeObservableWidth;
+      case "normal":
+        return true;
+      case "size":
+        return hasPosition && !this.#resizeObservableWidth && !this.#resizeObservableHeight;
+    }
+    return false;
+  }
+  // Store subscriber implementation --------------------------------------------------------------------------------
+  /**
+   * @param handler - Callback function that is invoked on update / changes.
+   *
+   * @returns Unsubscribe function.
+   */
+  subscribe(handler) {
+    const currentIdx = this.#subscribers.findIndex((sub) => sub === handler);
+    if (currentIdx === -1) {
+      this.#subscribers.push(handler);
+      if (this.#subscribers.length === 1) {
+        const position = this.#deref();
+        if (position) {
+          this.#unsubscribe.push(position.stores.resizeObservableHeight.subscribe(this.#updateStateBound));
+          this.#unsubscribe.push(position.stores.resizeObservableWidth.subscribe(this.#updateStateBound));
+        }
+      }
+      handler(this);
+    }
+    return () => {
+      const index = this.#subscribers.findIndex((sub) => sub === handler);
+      if (index >= 0) {
+        this.#subscribers.splice(index, 1);
+        if (this.#subscribers.length === 0) {
+          this.#cleanup();
+        }
+      }
+    };
+  }
+  // Internal Implementation ----------------------------------------------------------------------------------------
+  #cleanup(notify = false) {
+    for (const unsubscribe of this.#unsubscribe) {
+      unsubscribe();
+    }
+    this.#unsubscribe.length = 0;
+    this.#resizeObservableHeight = false;
+    this.#resizeObservableWidth = false;
+    if (notify) {
+      this.#updateSubscribers();
+    }
+  }
+  #deref() {
+    const position = this.#position?.deref();
+    if (!position) {
+      this.#cleanup(true);
+    }
+    return position;
+  }
+  #updateState() {
+    const position = this.#deref();
+    if (position) {
+      this.#resizeObservableHeight = position.resizeObservableHeight;
+      this.#resizeObservableWidth = position.resizeObservableWidth;
+    }
+    this.#updateSubscribers();
+  }
+  /**
+   * Updates subscribers.
+   */
+  #updateSubscribers() {
+    for (let cntr = 0; cntr < this.#subscribers.length; cntr++) {
+      this.#subscribers[cntr](this);
+    }
+  }
+}
+function applyStyles(node, properties) {
+  function setProperties() {
+    if (!isObject(properties)) {
+      return;
+    }
+    for (const prop of Object.keys(properties)) {
+      node.style.setProperty(`${prop}`, properties[prop]);
+    }
+  }
+  setProperties();
+  return {
+    /**
+     * @param {{ [key: string]: string | null }}  newProperties - Key / value object of properties to set.
+     */
+    update: (newProperties) => {
+      properties = newProperties;
+      setProperties();
+    }
+  };
+}
 function localize(stringId, data) {
   const result = !isObject(data) ? globalThis.game.i18n.localize(stringId) : globalThis.game.i18n.format(stringId, data);
   return result !== void 0 ? result : "";
@@ -12099,6 +14087,8 @@ class ApplicationState {
    *
    * @param {boolean}           [options.animateTo=false] - Animate to restore data.
    *
+   * @param {boolean}           [options.cancelable=true] - When true, animation is cancelable.
+   *
    * @param {number}            [options.duration=0.1] - Duration in seconds.
    *
    * @param {import('@typhonjs-fvtt/runtime/svelte/easing').EasingReference} [options.ease='linear'] - Easing function or easing
@@ -12106,7 +14096,7 @@ class ApplicationState {
    *
    * @returns {import('../../types').SvelteApp.API.State.Data | undefined} Any saved application state.
    */
-  restore({ name, remove = false, animateTo = false, duration = 0.1, ease = "linear" }) {
+  restore({ name, remove = false, animateTo = false, cancelable = true, duration = 0.1, ease = "linear" }) {
     if (typeof name !== "string") {
       throw new TypeError(`[SvelteApp.state.restore] error: 'name' is not a string.`);
     }
@@ -12120,6 +14110,7 @@ class ApplicationState {
         this.#setImpl(dataSaved, {
           animateTo,
           async: true,
+          cancelable,
           duration,
           ease
         }).then(() => {
@@ -12163,6 +14154,8 @@ class ApplicationState {
    *
    * @param {boolean}        [options.animateTo=false] - Animate to restore data.
    *
+   * @param {boolean}        [options.cancelable=true] - When true, animation is cancelable.
+   *
    * @param {number}         [options.duration=0.1] - Duration in seconds.
    *
    * @param {import('@typhonjs-fvtt/runtime/svelte/easing').EasingReference} [options.ease='linear'] - Easing function or easing
@@ -12192,6 +14185,8 @@ class ApplicationState {
    *
    * @param {boolean}           [opts.animateTo=false] - Animate to restore data.
    *
+   * @param {boolean}           [opts.cancelable=true] - When true, animation is cancelable.
+   *
    * @param {number}            [opts.duration=0.1] - Duration in seconds.
    *
    * @param {import('@typhonjs-fvtt/runtime/svelte/easing').EasingReference} [opts.ease='linear'] - Easing function or easing
@@ -12199,7 +14194,7 @@ class ApplicationState {
    *
    * @returns {undefined | Promise<void>} When asynchronous the animation Promise.
    */
-  #setImpl(data, { async = false, animateTo = false, duration = 0.1, ease = "linear" } = {}) {
+  #setImpl(data, { async = false, animateTo = false, cancelable = true, duration = 0.1, ease = "linear" } = {}) {
     if (!isObject(data)) {
       throw new TypeError(`[SvelteApp.state.set] error: 'data' is not an object.`);
     }
@@ -12224,6 +14219,7 @@ class ApplicationState {
         }
       }
       const promise2 = application.position.animate.to(data.position, {
+        cancelable,
         duration,
         ease,
         strategy: "cancelAll"
@@ -12248,10 +14244,10 @@ class ApplicationState {
         return promise2;
       }
     } else {
+      if (isObject(data?.options)) {
+        application?.reactive.mergeOptions(data.options);
+      }
       if (rendered) {
-        if (isObject(data?.options)) {
-          application?.reactive.mergeOptions(data.options);
-        }
         if (isObject(data?.ui)) {
           const minimized = typeof data.ui?.minimized === "boolean" ? data.ui.minimized : false;
           if (application?.reactive?.minimized && !minimized) {
@@ -12321,565 +14317,29 @@ class GetSvelteData {
     return this.#svelteData[0];
   }
 }
-class SvelteReactive {
-  /**
-   * @type {import('../SvelteApp').SvelteApp}
-   */
-  #application;
-  /**
-   * @type {boolean}
-   */
-  #initialized = false;
-  /** @type {import('@typhonjs-fvtt/runtime/svelte/store/web-storage').WebStorage} */
-  #sessionStorage;
-  /**
-   * The Application option store which is injected into mounted Svelte component context under the `external` key.
-   *
-   * @type {import('./types').StoreAppOptions}
-   */
-  #storeAppOptions;
-  /**
-   * Stores the update function for `#storeAppOptions`.
-   *
-   * @type {(this: void, updater: import('svelte/store').Updater<object>) => void}
-   */
-  #storeAppOptionsUpdate;
-  /**
-   * Stores the UI state data to make it accessible via getters.
-   *
-   * @type {object}
-   */
-  #dataUIState;
-  /**
-   * The UI option store which is injected into mounted Svelte component context under the `external` key.
-   *
-   * @type {import('./types').StoreUIOptions}
-   */
-  #storeUIState;
-  /**
-   * Stores the update function for `#storeUIState`.
-   *
-   * @type {(this: void, updater: import('svelte/store').Updater<object>) => void}
-   */
-  #storeUIStateUpdate;
-  /**
-   * Stores the unsubscribe functions from local store subscriptions.
-   *
-   * @type {import('svelte/store').Unsubscriber[]}
-   */
-  #storeUnsubscribe = [];
-  /**
-   * @param {import('../SvelteApp').SvelteApp} application - The host Foundry application.
-   */
-  constructor(application) {
-    this.#application = application;
-    const optionsSessionStorage = application?.options?.sessionStorage;
-    if (optionsSessionStorage !== void 0 && !(optionsSessionStorage instanceof TJSWebStorage)) {
-      throw new TypeError(`'options.sessionStorage' is not an instance of TJSWebStorage.`);
-    }
-    this.#sessionStorage = optionsSessionStorage !== void 0 ? optionsSessionStorage : new TJSSessionStorage();
+function handleAlwaysOnTop(application, enabled, initialPopOut) {
+  if (typeof enabled !== "boolean") {
+    throw new TypeError(`[SvelteApp handleAlwaysOnTop error]: 'enabled' is not a boolean.`);
   }
-  /**
-   * Initializes reactive support. Package private for internal use.
-   *
-   * @returns {import('./types-local').SvelteReactiveStores | undefined} Internal methods to interact with Svelte
-   * stores.
-   *
-   * @package
-   * @internal
-   */
-  initialize() {
-    if (this.#initialized) {
-      return;
-    }
-    this.#initialized = true;
-    this.#storesInitialize();
-    return {
-      appOptionsUpdate: this.#storeAppOptionsUpdate,
-      uiStateUpdate: this.#storeUIStateUpdate,
-      subscribe: this.#storesSubscribe.bind(this),
-      unsubscribe: this.#storesUnsubscribe.bind(this)
-    };
+  if (typeof initialPopOut !== "boolean") {
+    throw new TypeError(`[SvelteApp handleAlwaysOnTop error]: 'initialPopOut' is not a boolean.`);
   }
-  // Store getters -----------------------------------------------------------------------------------------------------
-  /**
-   * @returns {import('@typhonjs-fvtt/runtime/svelte/store/web-storage').WebStorage} Returns WebStorage (session) instance.
-   */
-  get sessionStorage() {
-    return this.#sessionStorage;
+  const version2 = globalThis?.TRL_SVELTE_APP_DATA?.VERSION;
+  if (typeof version2 !== "number") {
+    console.error("[SvelteApp handleAlwaysOnTop error]: global SvelteApp data unavailable.");
+    return;
   }
-  /**
-   * Returns the store for app options.
-   *
-   * @returns {import('../../types').SvelteApp.API.Reactive.AppOptions} App options store.
-   */
-  get storeAppOptions() {
-    return this.#storeAppOptions;
-  }
-  /**
-   * Returns the store for UI options.
-   *
-   * @returns {import('../../types').SvelteApp.API.Reactive.UIState} UI options store.
-   */
-  get storeUIState() {
-    return this.#storeUIState;
-  }
-  // Only reactive getters ---------------------------------------------------------------------------------------------
-  /**
-   * Returns the current active Window / WindowProxy UI state.
-   *
-   * @returns {Window} Active window UI state.
-   */
-  get activeWindow() {
-    return this.#dataUIState.activeWindow ?? globalThis;
-  }
-  /**
-   * Returns the current dragging UI state.
-   *
-   * @returns {boolean} Dragging UI state.
-   */
-  get dragging() {
-    return this.#dataUIState.dragging;
-  }
-  /**
-   * Returns the current minimized UI state.
-   *
-   * @returns {boolean} Minimized UI state.
-   */
-  get minimized() {
-    return this.#dataUIState.minimized;
-  }
-  /**
-   * Returns the current resizing UI state.
-   *
-   * @returns {boolean} Resizing UI state.
-   */
-  get resizing() {
-    return this.#dataUIState.resizing;
-  }
-  /**
-   * Sets the current active Window / WindowProxy UI state.
-   *
-   * Note: This is protected usage and used internally.
-   *
-   * @param {Window} activeWindow - Active Window / WindowProxy UI state.
-   *
-   * @hidden
-   */
-  set activeWindow(activeWindow) {
-    if (activeWindow === void 0 || activeWindow === null || Object.prototype.toString.call(activeWindow) === "[object Window]") {
-      this.#storeUIStateUpdate((options) => deepMerge(options, { activeWindow: activeWindow ?? globalThis }));
-    }
-  }
-  // Reactive getter / setters -----------------------------------------------------------------------------------------
-  /**
-   * Returns the draggable app option.
-   *
-   * @returns {boolean} Draggable app option.
-   */
-  get draggable() {
-    return this.#application?.options?.draggable;
-  }
-  /**
-   * Returns the focusAuto app option.
-   *
-   * @returns {boolean} When true auto-management of app focus is enabled.
-   */
-  get focusAuto() {
-    return this.#application?.options?.focusAuto;
-  }
-  /**
-   * Returns the focusKeep app option.
-   *
-   * @returns {boolean} When `focusAuto` and `focusKeep` is true; keeps internal focus.
-   */
-  get focusKeep() {
-    return this.#application?.options?.focusKeep;
-  }
-  /**
-   * Returns the focusTrap app option.
-   *
-   * @returns {boolean} When true focus trapping / wrapping is enabled keeping focus inside app.
-   */
-  get focusTrap() {
-    return this.#application?.options?.focusTrap;
-  }
-  /**
-   * Returns the headerButtonNoClose app option.
-   *
-   * @returns {boolean} Remove the close the button in header app option.
-   */
-  get headerButtonNoClose() {
-    return this.#application?.options?.headerButtonNoClose;
-  }
-  /**
-   * Returns the headerButtonNoLabel app option.
-   *
-   * @returns {boolean} Remove the labels from buttons in header app option.
-   */
-  get headerButtonNoLabel() {
-    return this.#application?.options?.headerButtonNoLabel;
-  }
-  /**
-   * Returns the headerIcon app option.
-   *
-   * @returns {string|void} URL for header app icon.
-   */
-  get headerIcon() {
-    return this.#application?.options?.headerIcon;
-  }
-  /**
-   * Returns the headerNoTitleMinimized app option.
-   *
-   * @returns {boolean} When true removes the header title when minimized.
-   */
-  get headerNoTitleMinimized() {
-    return this.#application?.options?.headerNoTitleMinimized;
-  }
-  /**
-   * Returns the minimizable app option.
-   *
-   * @returns {boolean} Minimizable app option.
-   */
-  get minimizable() {
-    return this.#application?.options?.minimizable;
-  }
-  /**
-   * Returns the Foundry popOut state; {@link Application.popOut}
-   *
-   * @returns {boolean} Positionable app option.
-   */
-  get popOut() {
-    return this.#application.popOut;
-  }
-  /**
-   * Returns the positionable app option; {@link SvelteApp.Options.positionable}
-   *
-   * @returns {boolean} Positionable app option.
-   */
-  get positionable() {
-    return this.#application?.options?.positionable;
-  }
-  /**
-   * Returns the resizable option.
-   *
-   * @returns {boolean} Resizable app option.
-   */
-  get resizable() {
-    return this.#application?.options?.resizable;
-  }
-  /**
-   * Returns the title accessor from the parent Application class; {@link Application.title}
-   *
-   * @privateRemarks
-   * TODO: Application v2; note that super.title localizes `this.options.title`; IMHO it shouldn't.    *
-   *
-   * @returns {string} Title.
-   */
-  get title() {
-    return this.#application.title;
-  }
-  /**
-   * Sets `this.options.draggable` which is reactive for application shells.
-   *
-   * @param {boolean}  draggable - Sets the draggable option.
-   */
-  set draggable(draggable2) {
-    if (typeof draggable2 === "boolean") {
-      this.setOptions("draggable", draggable2);
-    }
-  }
-  /**
-   * Sets `this.options.focusAuto` which is reactive for application shells.
-   *
-   * @param {boolean}  focusAuto - Sets the focusAuto option.
-   */
-  set focusAuto(focusAuto) {
-    if (typeof focusAuto === "boolean") {
-      this.setOptions("focusAuto", focusAuto);
-    }
-  }
-  /**
-   * Sets `this.options.focusKeep` which is reactive for application shells.
-   *
-   * @param {boolean}  focusKeep - Sets the focusKeep option.
-   */
-  set focusKeep(focusKeep) {
-    if (typeof focusKeep === "boolean") {
-      this.setOptions("focusKeep", focusKeep);
-    }
-  }
-  /**
-   * Sets `this.options.focusTrap` which is reactive for application shells.
-   *
-   * @param {boolean}  focusTrap - Sets the focusTrap option.
-   */
-  set focusTrap(focusTrap) {
-    if (typeof focusTrap === "boolean") {
-      this.setOptions("focusTrap", focusTrap);
-    }
-  }
-  /**
-   * Sets `this.options.headerButtonNoClose` which is reactive for application shells.
-   *
-   * @param {boolean}  headerButtonNoClose - Sets the headerButtonNoClose option.
-   */
-  set headerButtonNoClose(headerButtonNoClose) {
-    if (typeof headerButtonNoClose === "boolean") {
-      this.setOptions("headerButtonNoClose", headerButtonNoClose);
-    }
-  }
-  /**
-   * Sets `this.options.headerButtonNoLabel` which is reactive for application shells.
-   *
-   * @param {boolean}  headerButtonNoLabel - Sets the headerButtonNoLabel option.
-   */
-  set headerButtonNoLabel(headerButtonNoLabel) {
-    if (typeof headerButtonNoLabel === "boolean") {
-      this.setOptions("headerButtonNoLabel", headerButtonNoLabel);
-    }
-  }
-  /**
-   * Sets `this.options.headerIcon` which is reactive for application shells.
-   *
-   * @param {string | undefined}  headerIcon - Sets the headerButtonNoLabel option.
-   */
-  set headerIcon(headerIcon) {
-    if (headerIcon === void 0 || typeof headerIcon === "string") {
-      this.setOptions("headerIcon", headerIcon);
-    }
-  }
-  /**
-   * Sets `this.options.headerNoTitleMinimized` which is reactive for application shells.
-   *
-   * @param {boolean}  headerNoTitleMinimized - Sets the headerNoTitleMinimized option.
-   */
-  set headerNoTitleMinimized(headerNoTitleMinimized) {
-    if (typeof headerNoTitleMinimized === "boolean") {
-      this.setOptions("headerNoTitleMinimized", headerNoTitleMinimized);
-    }
-  }
-  /**
-   * Sets `this.options.minimizable` which is reactive for application shells that are also pop out.
-   *
-   * @param {boolean}  minimizable - Sets the minimizable option.
-   */
-  set minimizable(minimizable) {
-    if (typeof minimizable === "boolean") {
-      this.setOptions("minimizable", minimizable);
-    }
-  }
-  /**
-   * Sets `this.options.popOut` which is reactive for application shells. This will add / remove this application
-   * from `ui.windows`.
-   *
-   * @param {boolean}  popOut - Sets the popOut option.
-   */
-  set popOut(popOut) {
-    if (typeof popOut === "boolean") {
-      this.setOptions("popOut", popOut);
-    }
-  }
-  /**
-   * Sets `this.options.positionable` enabling / disabling {@link SvelteApp.position}.
-   *
-   * @param {boolean}  positionable - Sets the positionable option.
-   */
-  set positionable(positionable) {
-    if (typeof positionable === "boolean") {
-      this.setOptions("positionable", positionable);
-    }
-  }
-  /**
-   * Sets `this.options.resizable` which is reactive for application shells.
-   *
-   * @param {boolean}  resizable - Sets the resizable option.
-   */
-  set resizable(resizable) {
-    if (typeof resizable === "boolean") {
-      this.setOptions("resizable", resizable);
-    }
-  }
-  /**
-   * Sets `this.options.title` which is reactive for application shells.
-   *
-   * Note: Will set empty string if title is undefined or null.
-   *
-   * @param {string | undefined | null}   title - Application title; will be localized, so a translation key is fine.
-   */
-  set title(title) {
-    if (typeof title === "string") {
-      this.setOptions("title", title);
-    } else if (title === void 0 || title === null) {
-      this.setOptions("title", "");
-    }
-  }
-  // Reactive Options API -------------------------------------------------------------------------------------------
-  /**
-   * Provides a way to safely get this applications options given an accessor string which describes the
-   * entries to walk. To access deeper entries into the object format the accessor string with `.` between entries
-   * to walk.
-   *
-   * // TODO DOCUMENT the accessor in more detail.
-   *
-   * @param {string}   accessor - The path / key to set. You can set multiple levels.
-   *
-   * @param {*}        [defaultValue] - A default value returned if the accessor is not found.
-   *
-   * @returns {*} Value at the accessor.
-   */
-  getOptions(accessor, defaultValue) {
-    return safeAccess(this.#application.options, accessor, defaultValue);
-  }
-  /**
-   * Provides a way to merge `options` into this applications options and update the appOptions store.
-   *
-   * @param {object}   options - The options object to merge with `this.options`.
-   */
-  mergeOptions(options) {
-    this.#storeAppOptionsUpdate((instanceOptions) => deepMerge(instanceOptions, options));
-  }
-  /**
-   * Provides a way to safely set this applications options given an accessor string which describes the
-   * entries to walk. To access deeper entries into the object format the accessor string with `.` between entries
-   * to walk.
-   *
-   * Additionally, if an application shell Svelte component is mounted and exports the `appOptions` property then
-   * the application options is set to `appOptions` potentially updating the application shell / Svelte component.
-   *
-   * @param {string}   accessor - The path / key to set. You can set multiple levels.
-   *
-   * @param {any}      value - Value to set.
-   */
-  setOptions(accessor, value) {
-    const success = safeSet(this.#application.options, accessor, value, { createMissing: true });
-    if (success) {
-      this.#storeAppOptionsUpdate(() => this.#application.options);
-    }
-  }
-  /**
-   * Serializes the main {@link SvelteApp.Options} for common application state.
-   *
-   * @returns {import('../../types').SvelteApp.API.Reactive.Data} Common application state.
-   */
-  toJSON() {
-    return {
-      draggable: this.#application?.options?.draggable ?? true,
-      focusAuto: this.#application?.options?.focusAuto ?? true,
-      focusKeep: this.#application?.options?.focusKeep ?? false,
-      focusTrap: this.#application?.options?.focusTrap ?? true,
-      headerButtonNoClose: this.#application?.options?.headerButtonNoClose ?? false,
-      headerButtonNoLabel: this.#application?.options?.headerButtonNoLabel ?? false,
-      headerNoTitleMinimized: this.#application?.options?.headerNoTitleMinimized ?? false,
-      minimizable: this.#application?.options?.minimizable ?? true,
-      positionable: this.#application?.options?.positionable ?? true,
-      resizable: this.#application?.options?.resizable ?? true
-    };
-  }
-  /**
-   * Updates the UI Options store with the current header buttons. You may dynamically add / remove header buttons
-   * if using an application shell Svelte component. In either overriding `_getHeaderButtons` or responding to the
-   * Hooks fired return a new button array and the uiOptions store is updated and the application shell will render
-   * the new buttons.
-   *
-   * Optionally you can set in the SvelteApp app options {@link SvelteApp.Options.headerButtonNoClose}
-   * to remove the close button from the header buttons.
-   *
-   * @param {object} [opts] - Optional parameters (for internal use)
-   *
-   * @param {boolean} [opts.headerButtonNoClose] - The value for `headerButtonNoClose`.
-   */
-  updateHeaderButtons({ headerButtonNoClose = this.#application.options.headerButtonNoClose } = {}) {
-    let buttons = this.#application._getHeaderButtons();
-    if (typeof headerButtonNoClose === "boolean" && headerButtonNoClose) {
-      buttons = buttons.filter((button) => button.class !== "close");
-    }
-    const closeButton = buttons.find((button) => button.class === "close");
-    if (closeButton) {
-      closeButton.label = "APPLICATION.TOOLS.Close";
-    }
-    this.#storeUIStateUpdate((options) => {
-      options.headerButtons = buttons;
-      return options;
+  if (enabled) {
+    globalThis.requestAnimationFrame(() => {
+      application.reactive.popOut = false;
+      globalThis.requestAnimationFrame(() => application.bringToTop({ force: true }));
     });
-  }
-  // Internal implementation ----------------------------------------------------------------------------------------
-  /**
-   * Initializes the Svelte stores and derived stores for the application options and UI state.
-   *
-   * While writable stores are created the update method is stored in private variables locally and derived Readable
-   * stores are provided for essential options which are commonly used.
-   *
-   * These stores are injected into all Svelte components mounted under the `external` context: `storeAppOptions` and
-   * `storeUIState`.
-   */
-  #storesInitialize() {
-    const writableAppOptions = writable(this.#application.options);
-    this.#storeAppOptionsUpdate = writableAppOptions.update;
-    const storeAppOptions = {
-      subscribe: writableAppOptions.subscribe,
-      draggable: propertyStore(writableAppOptions, "draggable"),
-      focusAuto: propertyStore(writableAppOptions, "focusAuto"),
-      focusKeep: propertyStore(writableAppOptions, "focusKeep"),
-      focusTrap: propertyStore(writableAppOptions, "focusTrap"),
-      headerButtonNoClose: propertyStore(writableAppOptions, "headerButtonNoClose"),
-      headerButtonNoLabel: propertyStore(writableAppOptions, "headerButtonNoLabel"),
-      headerIcon: propertyStore(writableAppOptions, "headerIcon"),
-      headerNoTitleMinimized: propertyStore(writableAppOptions, "headerNoTitleMinimized"),
-      minimizable: propertyStore(writableAppOptions, "minimizable"),
-      popOut: propertyStore(writableAppOptions, "popOut"),
-      positionable: propertyStore(writableAppOptions, "positionable"),
-      resizable: propertyStore(writableAppOptions, "resizable"),
-      title: propertyStore(writableAppOptions, "title")
-    };
-    Object.freeze(storeAppOptions);
-    this.#storeAppOptions = storeAppOptions;
-    this.#dataUIState = {
-      activeWindow: globalThis,
-      dragging: false,
-      headerButtons: [],
-      minimized: this.#application._minimized,
-      resizing: false
-    };
-    const writableUIOptions = writable(this.#dataUIState);
-    this.#storeUIStateUpdate = writableUIOptions.update;
-    const storeUIState = {
-      subscribe: writableUIOptions.subscribe,
-      // activeWindow: propertyStore(writableUIOptions, 'activeWindow'),
-      activeWindow: derived(writableUIOptions, ($options, set) => set($options.activeWindow)),
-      dragging: propertyStore(writableUIOptions, "dragging"),
-      headerButtons: derived(writableUIOptions, ($options, set) => set($options.headerButtons)),
-      minimized: derived(writableUIOptions, ($options, set) => set($options.minimized)),
-      resizing: propertyStore(writableUIOptions, "resizing")
-    };
-    Object.freeze(storeUIState);
-    this.#storeUIState = storeUIState;
-  }
-  /**
-   * Registers local store subscriptions for app options. `popOut` controls registering this app with `ui.windows`.
-   *
-   * @see SvelteApp._injectHTML
-   */
-  #storesSubscribe() {
-    this.#storeUnsubscribe.push(subscribeIgnoreFirst(this.#storeAppOptions.headerButtonNoClose, (value) => {
-      this.updateHeaderButtons({ headerButtonNoClose: value });
-    }));
-    this.#storeUnsubscribe.push(subscribeIgnoreFirst(this.#storeAppOptions.popOut, (value) => {
-      if (value && this.#application.rendered) {
-        globalThis.ui.windows[this.#application.appId] = this.#application;
-      } else {
-        delete globalThis.ui.windows[this.#application.appId];
-      }
-    }));
-  }
-  /**
-   * Unsubscribes from any locally monitored stores.
-   *
-   * @see SvelteApp.close
-   */
-  #storesUnsubscribe() {
-    this.#storeUnsubscribe.forEach((unsubscribe) => unsubscribe());
-    this.#storeUnsubscribe = [];
+  } else {
+    globalThis.requestAnimationFrame(() => {
+      application.position.zIndex = foundry.applications.api.ApplicationV2._maxZ - 1;
+      application.reactive.popOut = initialPopOut;
+      globalThis.requestAnimationFrame(() => application.bringToTop({ force: true }));
+    });
   }
 }
 const applicationShellContract = ["elementRoot"];
@@ -12953,6 +14413,742 @@ Offending config:
   }
   return { config: svelteConfig, component, element: element2 };
 }
+class SvelteReactive {
+  /**
+   * @type {SvelteSet<string>}
+   */
+  #activeClasses;
+  /**
+   * @type {import('../SvelteApp').SvelteApp}
+   */
+  #application;
+  /**
+   * @type {boolean}
+   */
+  #initialized = false;
+  /**
+   * @type {boolean}
+   */
+  #initialPopOut;
+  /** @type {import('@typhonjs-fvtt/runtime/svelte/store/web-storage').WebStorage} */
+  #sessionStorage;
+  /**
+   * The Application option store which is injected into mounted Svelte component context under the `external` key.
+   *
+   * @type {import('../../types').SvelteApp.API.Reactive.AppOptions}
+   */
+  #storeAppOptions;
+  /**
+   * Stores the update function for `#storeAppOptions`.
+   *
+   * @type {(this: void, updater: import('svelte/store').Updater<object>) => void}
+   */
+  #storeAppOptionsUpdate;
+  /**
+   * Stores the UI state data to make it accessible via getters.
+   *
+   * @type {import('../../types').SvelteApp.API.Reactive.UIStateData}
+   */
+  #dataUIState;
+  /**
+   * The UI option store which is injected into mounted Svelte component context under the `external` key.
+   *
+   * @type {import('../../types').SvelteApp.API.Reactive.UIState}
+   */
+  #storeUIState;
+  /**
+   * Stores the update function for `#storeUIState`.
+   *
+   * @type {(this: void, updater: import('svelte/store').Updater<object>) => void}
+   */
+  #storeUIStateUpdate;
+  /**
+   * Stores the unsubscribe functions from local store subscriptions.
+   *
+   * @type {import('svelte/store').Unsubscriber[]}
+   */
+  #storeUnsubscribe = [];
+  /**
+   * @param {import('../SvelteApp').SvelteApp} application - The host Foundry application.
+   *
+   * @param {boolean} initialPopOut - Initial `popOut` state on app construction.
+   */
+  constructor(application, initialPopOut) {
+    this.#application = application;
+    this.#initialPopOut = initialPopOut;
+    const optionsSessionStorage = application?.options?.sessionStorage;
+    if (optionsSessionStorage !== void 0 && !(optionsSessionStorage instanceof TJSWebStorage)) {
+      throw new TypeError(`'options.sessionStorage' is not an instance of TJSWebStorage.`);
+    }
+    this.#sessionStorage = optionsSessionStorage !== void 0 ? optionsSessionStorage : new TJSSessionStorage();
+  }
+  /**
+   * Initializes reactive support. Package private for internal use.
+   *
+   * @returns {import('./types-local').SvelteReactiveStores | undefined} Internal methods to interact with Svelte
+   * stores.
+   *
+   * @package
+   * @internal
+   */
+  initialize() {
+    if (this.#initialized) {
+      return;
+    }
+    this.#initialized = true;
+    this.#storesInitialize();
+    return {
+      appOptionsUpdate: this.#storeAppOptionsUpdate,
+      uiStateUpdate: this.#storeUIStateUpdate,
+      subscribe: this.#storesSubscribe.bind(this),
+      unsubscribe: this.#storesUnsubscribe.bind(this)
+    };
+  }
+  // Store getters -----------------------------------------------------------------------------------------------------
+  /**
+   * @returns {import('@typhonjs-fvtt/runtime/svelte/store/web-storage').WebStorage} Returns WebStorage (session) instance.
+   */
+  get sessionStorage() {
+    return this.#sessionStorage;
+  }
+  /**
+   * Returns the store for app options.
+   *
+   * @returns {import('../../types').SvelteApp.API.Reactive.AppOptions} App options store.
+   */
+  get storeAppOptions() {
+    return this.#storeAppOptions;
+  }
+  /**
+   * Returns the store for UI options.
+   *
+   * @returns {import('../../types').SvelteApp.API.Reactive.UIState} UI options store.
+   */
+  get storeUIState() {
+    return this.#storeUIState;
+  }
+  // Only reactive getters ---------------------------------------------------------------------------------------------
+  /**
+   * Returns the current active CSS classes Set applied to the app window. This is reactive for any modifications.
+   *
+   * @returns {SvelteSet<string>} Active app CSS classes Set.
+   */
+  get activeClasses() {
+    return this.#activeClasses;
+  }
+  /**
+   * Returns the current active Window / WindowProxy UI state.
+   *
+   * @returns {Window} Active window UI state.
+   */
+  get activeWindow() {
+    return this.#dataUIState.activeWindow ?? globalThis;
+  }
+  /**
+   * Returns the current dragging UI state.
+   *
+   * @returns {boolean} Dragging UI state.
+   */
+  get dragging() {
+    return this.#dataUIState.dragging;
+  }
+  /**
+   * Returns whether the app is detached from the main browser window.
+   *
+   * @returns {boolean} App detached state.
+   */
+  get detached() {
+    return this.#dataUIState.activeWindow !== globalThis;
+  }
+  /**
+   * Returns the current minimized UI state.
+   *
+   * @returns {boolean} Minimized UI state.
+   */
+  get minimized() {
+    return this.#dataUIState.minimized;
+  }
+  /**
+   * Returns the current resizing UI state.
+   *
+   * @returns {boolean} Resizing UI state.
+   */
+  get resizing() {
+    return this.#dataUIState.resizing;
+  }
+  /**
+   * Sets the current active Window / WindowProxy UI state.
+   *
+   * Note: This is protected usage and used internally.
+   *
+   * @param {Window} activeWindow - Active Window / WindowProxy UI state.
+   *
+   * @internal
+   */
+  set activeWindow(activeWindow) {
+    if (activeWindow === void 0 || activeWindow === null || Object.prototype.toString.call(activeWindow) === "[object Window]") {
+      this.#storeUIStateUpdate((options) => deepMerge(options, { activeWindow: activeWindow ?? globalThis }));
+    }
+  }
+  // Reactive getter / setters -----------------------------------------------------------------------------------------
+  /**
+   * Returns the alwaysOnTop app option.
+   *
+   * @returns {boolean} Always on top app option.
+   */
+  get alwaysOnTop() {
+    return this.#application?.options?.alwaysOnTop;
+  }
+  /**
+   * Returns the containerQueryType app option.
+   *
+   * @returns {string} App content container query app option.
+   */
+  get containerQueryType() {
+    return this.#application?.options?.containerQueryType;
+  }
+  /**
+   * Returns the draggable app option.
+   *
+   * @returns {boolean} Draggable app option.
+   */
+  get draggable() {
+    return this.#application?.options?.draggable;
+  }
+  /**
+   * Returns the focusAuto app option.
+   *
+   * @returns {boolean} When true auto-management of app focus is enabled.
+   */
+  get focusAuto() {
+    return this.#application?.options?.focusAuto;
+  }
+  /**
+   * Returns the focusKeep app option.
+   *
+   * @returns {boolean} When `focusAuto` and `focusKeep` is true; keeps internal focus.
+   */
+  get focusKeep() {
+    return this.#application?.options?.focusKeep;
+  }
+  /**
+   * Returns the focusTrap app option.
+   *
+   * @returns {boolean} When true focus trapping / wrapping is enabled keeping focus inside app.
+   */
+  get focusTrap() {
+    return this.#application?.options?.focusTrap;
+  }
+  /**
+   * Returns the headerButtonNoClose app option.
+   *
+   * @returns {boolean} Remove the close the button in header app option.
+   */
+  get headerButtonNoClose() {
+    return this.#application?.options?.headerButtonNoClose;
+  }
+  /**
+   * Returns the headerButtonNoLabel app option.
+   *
+   * @returns {boolean} Remove the labels from buttons in the header app option.
+   */
+  get headerButtonNoLabel() {
+    return this.#application?.options?.headerButtonNoLabel;
+  }
+  /**
+   * Returns the headerIcon app option.
+   *
+   * @returns {string | undefined} URL for header app icon.
+   */
+  get headerIcon() {
+    return this.#application?.options?.headerIcon;
+  }
+  /**
+   * Returns the headerNoTitleMinimized app option.
+   *
+   * @returns {boolean} When true removes the header title when minimized.
+   */
+  get headerNoTitleMinimized() {
+    return this.#application?.options?.headerNoTitleMinimized;
+  }
+  /**
+   * Returns the minimizable app option.
+   *
+   * @returns {boolean} Minimizable app option.
+   */
+  get minimizable() {
+    return this.#application?.options?.minimizable;
+  }
+  /**
+   * Returns the Foundry popOut state; {@link Application.popOut}
+   *
+   * @returns {boolean} Positionable app option.
+   */
+  get popOut() {
+    return this.#application.popOut;
+  }
+  /**
+   * Returns the positionable app option; {@link SvelteApp.Options.positionable}
+   *
+   * @returns {boolean} Positionable app option.
+   */
+  get positionable() {
+    return this.#application?.options?.positionable;
+  }
+  /**
+   * Returns the resizable option.
+   *
+   * @returns {boolean} Resizable app option.
+   */
+  get resizable() {
+    return this.#application?.options?.resizable;
+  }
+  /**
+   * Returns the explicit theme name option.
+   *
+   * @returns {string | undefined} Theme name option.
+   */
+  get themeName() {
+    return this.#application?.options?.themeName;
+  }
+  /**
+   * Returns the title accessor from the parent Application class; {@link Application.title}
+   *
+   * @privateRemarks
+   * TODO: Application v2; note that super.title localizes `this.options.title`; IMHO it shouldn't.    *
+   *
+   * @returns {string} Title.
+   */
+  get title() {
+    return this.#application.title;
+  }
+  /**
+   * Sets `this.options.alwaysOnTop`, which is reactive for application shells.
+   *
+   * @param {boolean}  alwaysOnTop - Sets the `alwaysOnTop` option.
+   */
+  set alwaysOnTop(alwaysOnTop) {
+    if (typeof alwaysOnTop === "boolean") {
+      this.setOptions("alwaysOnTop", alwaysOnTop);
+    }
+  }
+  /**
+   * Sets `this.options.containerQueryType`, which is reactive for application shells.
+   *
+   * @param {string}  containerQueryType - Sets the `containerQueryType` option.
+   */
+  set containerQueryType(containerQueryType) {
+    if (containerQueryType === void 0 || containerQueryType === "inline-size" || containerQueryType === "size") {
+      this.setOptions("containerQueryType", containerQueryType);
+    }
+  }
+  /**
+   * Sets `this.options.draggable`, which is reactive for application shells.
+   *
+   * @param {boolean}  draggable - Sets the draggable option.
+   */
+  set draggable(draggable2) {
+    if (typeof draggable2 === "boolean") {
+      this.setOptions("draggable", draggable2);
+    }
+  }
+  /**
+   * Sets `this.options.focusAuto`, which is reactive for application shells.
+   *
+   * @param {boolean}  focusAuto - Sets the focusAuto option.
+   */
+  set focusAuto(focusAuto) {
+    if (typeof focusAuto === "boolean") {
+      this.setOptions("focusAuto", focusAuto);
+    }
+  }
+  /**
+   * Sets `this.options.focusKeep`, which is reactive for application shells.
+   *
+   * @param {boolean}  focusKeep - Sets the focusKeep option.
+   */
+  set focusKeep(focusKeep) {
+    if (typeof focusKeep === "boolean") {
+      this.setOptions("focusKeep", focusKeep);
+    }
+  }
+  /**
+   * Sets `this.options.focusTrap`, which is reactive for application shells.
+   *
+   * @param {boolean}  focusTrap - Sets the focusTrap option.
+   */
+  set focusTrap(focusTrap) {
+    if (typeof focusTrap === "boolean") {
+      this.setOptions("focusTrap", focusTrap);
+    }
+  }
+  /**
+   * Sets `this.options.headerButtonNoClose`, which is reactive for application shells.
+   *
+   * @param {boolean}  headerButtonNoClose - Sets the headerButtonNoClose option.
+   */
+  set headerButtonNoClose(headerButtonNoClose) {
+    if (typeof headerButtonNoClose === "boolean") {
+      this.setOptions("headerButtonNoClose", headerButtonNoClose);
+    }
+  }
+  /**
+   * Sets `this.options.headerButtonNoLabel`, which is reactive for application shells.
+   *
+   * @param {boolean}  headerButtonNoLabel - Sets the headerButtonNoLabel option.
+   */
+  set headerButtonNoLabel(headerButtonNoLabel) {
+    if (typeof headerButtonNoLabel === "boolean") {
+      this.setOptions("headerButtonNoLabel", headerButtonNoLabel);
+    }
+  }
+  /**
+   * Sets `this.options.headerIcon`, which is reactive for application shells.
+   *
+   * @param {string | undefined}  headerIcon - Sets the headerButtonNoLabel option.
+   */
+  set headerIcon(headerIcon) {
+    if (headerIcon === void 0 || typeof headerIcon === "string") {
+      this.setOptions("headerIcon", headerIcon);
+    }
+  }
+  /**
+   * Sets `this.options.headerNoTitleMinimized`, which is reactive for application shells.
+   *
+   * @param {boolean}  headerNoTitleMinimized - Sets the headerNoTitleMinimized option.
+   */
+  set headerNoTitleMinimized(headerNoTitleMinimized) {
+    if (typeof headerNoTitleMinimized === "boolean") {
+      this.setOptions("headerNoTitleMinimized", headerNoTitleMinimized);
+    }
+  }
+  /**
+   * Sets `this.options.minimizable`, which is reactive for application shells that are also pop out.
+   *
+   * @param {boolean}  minimizable - Sets the minimizable option.
+   */
+  set minimizable(minimizable) {
+    if (typeof minimizable === "boolean") {
+      this.setOptions("minimizable", minimizable);
+    }
+  }
+  /**
+   * Sets `this.options.popOut` which is reactive for application shells. This will add / remove this application
+   * from `ui.windows` via the subscription set in `#storesSubscribe`.
+   *
+   * @param {boolean}  popOut - Sets the popOut option.
+   */
+  set popOut(popOut) {
+    if (typeof popOut === "boolean") {
+      this.setOptions("popOut", popOut);
+    }
+  }
+  /**
+   * Sets `this.options.positionable`, enabling / disabling {@link SvelteApp.position}.
+   *
+   * @param {boolean}  positionable - Sets the positionable option.
+   */
+  set positionable(positionable) {
+    if (typeof positionable === "boolean") {
+      this.setOptions("positionable", positionable);
+    }
+  }
+  /**
+   * Sets `this.options.resizable`, which is reactive for application shells.
+   *
+   * @param {boolean}  resizable - Sets the resizable option.
+   */
+  set resizable(resizable) {
+    if (typeof resizable === "boolean") {
+      this.setOptions("resizable", resizable);
+    }
+  }
+  /**
+   * Sets `this.options.themeName`, which is reactive for application shells.
+   *
+   * @param {string | undefined}  themeName - Sets the themeName option.
+   */
+  set themeName(themeName) {
+    if (themeName === void 0 || typeof themeName === "string") {
+      this.setOptions("themeName", themeName);
+    }
+  }
+  /**
+   * Sets `this.options.title`, which is reactive for application shells.
+   *
+   * Note: Will set empty string if title is undefined or null.
+   *
+   * @param {string | undefined | null}   title - Application title; will be localized, so a translation key is fine.
+   */
+  set title(title) {
+    if (typeof title === "string") {
+      this.setOptions("title", title);
+    } else if (title === void 0 || title === null) {
+      this.setOptions("title", "");
+    }
+  }
+  // Reactive Options API -------------------------------------------------------------------------------------------
+  /**
+   * Provides a way to safely get this applications options given an accessor string which describes the
+   * entries to walk. To access deeper entries into the object format the accessor string with `.` between entries
+   * to walk.
+   *
+   * @privateRemarks
+   * TODO: DOCUMENT the accessor in more detail.
+   *
+   * @param {string}   accessor - The path / key to set. You can set multiple levels.
+   *
+   * @param {*}        [defaultValue] - A default value returned if the accessor is not found.
+   *
+   * @returns {*} Value at the accessor.
+   */
+  getOptions(accessor, defaultValue) {
+    return safeAccess(this.#application.options, accessor, defaultValue);
+  }
+  /**
+   * Provides a way to merge `options` into the application options and update the appOptions store.
+   *
+   * @param {object}   options - The options object to merge with `this.options`.
+   */
+  mergeOptions(options) {
+    this.#storeAppOptionsUpdate((instanceOptions) => deepMerge(instanceOptions, options));
+  }
+  /**
+   * Provides a way to safely set the application options given an accessor string which describes the
+   * entries to walk. To access deeper entries into the object format, the accessor string with `.` between entries
+   * to walk.
+   *
+   * Additionally, if an application shell Svelte component is mounted and exports the `appOptions` property, then
+   * the application options are set to `appOptions` potentially updating the application shell / Svelte component.
+   *
+   * @param {string}   accessor - The path / key to set. You can set multiple levels.
+   *
+   * @param {any}      value - Value to set.
+   */
+  setOptions(accessor, value) {
+    const success = safeSet(this.#application.options, accessor, value, { createMissing: true });
+    if (success) {
+      this.#storeAppOptionsUpdate(() => this.#application.options);
+    }
+  }
+  /**
+   * Serializes the main {@link SvelteApp.Options} for common application state.
+   *
+   * @returns {import('../../types').SvelteApp.API.Reactive.SerializedData} Common application state.
+   */
+  toJSON() {
+    return {
+      alwaysOnTop: this.#application?.options?.alwaysOnTop ?? false,
+      draggable: this.#application?.options?.draggable ?? true,
+      focusAuto: this.#application?.options?.focusAuto ?? true,
+      focusKeep: this.#application?.options?.focusKeep ?? false,
+      focusTrap: this.#application?.options?.focusTrap ?? true,
+      headerButtonNoClose: this.#application?.options?.headerButtonNoClose ?? false,
+      headerButtonNoLabel: this.#application?.options?.headerButtonNoLabel ?? false,
+      headerNoTitleMinimized: this.#application?.options?.headerNoTitleMinimized ?? false,
+      minimizable: this.#application?.options?.minimizable ?? true,
+      positionable: this.#application?.options?.positionable ?? true,
+      resizable: this.#application?.options?.resizable ?? true,
+      themeName: this.#application?.options?.themeName ?? void 0
+    };
+  }
+  /**
+   * Updates the UI Options store with the current header buttons. You may dynamically add / remove header buttons
+   * if using an application shell Svelte component. In either overriding `_getHeaderButtons` or responding to the
+   * Hooks fired return a new button array, and the uiOptions store is updated, and the application shell will render
+   * the new buttons.
+   *
+   * Optionally you can set in the SvelteApp app options {@link SvelteApp.Options.headerButtonNoClose}
+   * to remove the close button from the header buttons.
+   *
+   * @param {object} [opts] - Optional parameters (for internal use)
+   *
+   * @param {boolean} [opts.headerButtonNoClose] - The value for `headerButtonNoClose`.
+   */
+  updateHeaderButtons({ headerButtonNoClose = this.#application.options.headerButtonNoClose } = {}) {
+    queueMicrotask(() => {
+      let buttons = this.#application._getHeaderButtons();
+      if (typeof headerButtonNoClose === "boolean" && headerButtonNoClose) {
+        buttons = buttons.filter((button) => button.class !== "close");
+      }
+      const closeButton = buttons.find((button) => button.class === "close");
+      if (closeButton) {
+        closeButton.keepMinimized = true;
+        closeButton.label = "APPLICATION.TOOLS.Close";
+      }
+      this.#storeUIStateUpdate((options) => {
+        options.headerButtons = buttons;
+        return options;
+      });
+    });
+  }
+  // Internal implementation ----------------------------------------------------------------------------------------
+  /**
+   * Initializes the Svelte stores and derived stores for the application options and UI state.
+   *
+   * While writable stores are created, the update method is stored in private variables locally and derived Readable
+   * stores are provided for essential options which are commonly used.
+   *
+   * These stores are injected into all Svelte components mounted under the `external` context: `storeAppOptions` and
+   * `storeUIState`.
+   */
+  #storesInitialize() {
+    this.#activeClasses = new SvelteSet();
+    for (const entry of this.#application.options?.classes ?? []) {
+      if (typeof entry !== "string") {
+        continue;
+      }
+      if (entry === "themed" || entry.startsWith("theme-")) {
+        continue;
+      }
+      this.#activeClasses.add(entry);
+    }
+    const writableAppOptions = writable(this.#application.options);
+    this.#storeAppOptionsUpdate = writableAppOptions.update;
+    const storeAppOptions = {
+      subscribe: writableAppOptions.subscribe,
+      alwaysOnTop: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "alwaysOnTop")
+      ),
+      containerQueryType: (
+        /** @type {import('svelte/store').Writable<string>} */
+        propertyStore(writableAppOptions, "containerQueryType")
+      ),
+      draggable: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "draggable")
+      ),
+      focusAuto: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "focusAuto")
+      ),
+      focusKeep: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "focusKeep")
+      ),
+      focusTrap: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "focusTrap")
+      ),
+      headerButtonNoClose: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "headerButtonNoClose")
+      ),
+      headerButtonNoLabel: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "headerButtonNoLabel")
+      ),
+      headerIcon: (
+        /** @type {import('svelte/store').Writable<string | undefined>} */
+        propertyStore(writableAppOptions, "headerIcon")
+      ),
+      headerNoTitleMinimized: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "headerNoTitleMinimized")
+      ),
+      minimizable: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "minimizable")
+      ),
+      popOut: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "popOut")
+      ),
+      positionable: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "positionable")
+      ),
+      resizable: (
+        /** @type {import('svelte/store').Writable<boolean>} */
+        propertyStore(writableAppOptions, "resizable")
+      ),
+      themeName: (
+        /** @type {import('svelte/store').Writable<string | undefined>} */
+        propertyStore(writableAppOptions, "themeName")
+      ),
+      title: (
+        /** @type {import('svelte/store').Writable<string>} */
+        propertyStore(writableAppOptions, "title")
+      )
+    };
+    Object.freeze(storeAppOptions);
+    this.#storeAppOptions = storeAppOptions;
+    this.#dataUIState = {
+      activeWindow: window,
+      dragging: false,
+      headerButtons: [],
+      minimized: this.#application._minimized,
+      resizing: false
+    };
+    const writableUIOptions = writable(this.#dataUIState);
+    this.#storeUIStateUpdate = writableUIOptions.update;
+    const storeUIState = {
+      subscribe: writableUIOptions.subscribe,
+      activeWindow: (
+        /** @type {import('svelte/store').Readable<Window>} */
+        derived(writableUIOptions, ($options, set) => set($options.activeWindow))
+      ),
+      detached: (
+        /** @type {import('svelte/store').Readable<boolean>} */
+        derived(writableUIOptions, ($options, set) => set($options.activeWindow !== globalThis))
+      ),
+      dragging: (
+        /** @type {import('svelte/store').Readable<boolean>} */
+        propertyStore(writableUIOptions, "dragging")
+      ),
+      headerButtons: (
+        /** @type {import('svelte/store').Readable<import('../../types').SvelteApp.HeaderButton>} */
+        derived(writableUIOptions, ($options, set) => set($options.headerButtons))
+      ),
+      minimized: (
+        /** @type {import('svelte/store').Readable<boolean>} */
+        derived(writableUIOptions, ($options, set) => set($options.minimized))
+      ),
+      resizing: (
+        /** @type {import('svelte/store').Readable<boolean>} */
+        propertyStore(writableUIOptions, "resizing")
+      )
+    };
+    Object.freeze(storeUIState);
+    this.#storeUIState = storeUIState;
+  }
+  /**
+   * Registers local store subscriptions for app options. `popOut` controls registering this app with `ui.windows`.
+   *
+   * @see SvelteApp._injectHTML
+   */
+  #storesSubscribe() {
+    this.#storeUnsubscribe.push(subscribeIgnoreFirst(
+      this.#storeAppOptions.alwaysOnTop,
+      (enabled) => handleAlwaysOnTop(this.#application, enabled, this.#initialPopOut)
+    ));
+    this.#storeUnsubscribe.push(subscribeIgnoreFirst(this.#storeAppOptions.headerButtonNoClose, (value) => this.updateHeaderButtons({ headerButtonNoClose: value })));
+    this.#storeUnsubscribe.push(subscribeIgnoreFirst(this.#storeAppOptions.popOut, (value) => {
+      if (value) {
+        if (globalThis?.ui?.windows?.[this.#application.appId] !== this.#application) {
+          globalThis.ui.windows[this.#application.appId] = this.#application;
+        }
+      } else {
+        if (globalThis?.ui?.activeWindow === this.#application) {
+          globalThis.ui.activeWindow = null;
+        }
+        if (globalThis?.ui?.windows?.[this.#application.appId] === this.#application) {
+          delete globalThis.ui.windows[this.#application.appId];
+        }
+      }
+    }));
+  }
+  /**
+   * Unsubscribes from any locally monitored stores.
+   *
+   * @see SvelteApp.close
+   */
+  #storesUnsubscribe() {
+    this.#storeUnsubscribe.forEach((unsubscribe) => unsubscribe());
+    this.#storeUnsubscribe = [];
+  }
+}
 class TJSAppIndex {
   /**
    * Stores all visible / rendered apps.
@@ -13013,7 +15209,224 @@ class TJSAppIndex {
     return this.#visibleApps.values();
   }
 }
+class FoundryStyles {
+  /**
+   * Parsed Foundry core stylesheet.
+   *
+   * @type {StyleSheetResolve}
+   */
+  static #core;
+  /**
+   * Dummy / no-op instance when parsing or CORS / SecurityException occurs.
+   *
+   * @type {StyleSheetResolve}
+   */
+  static #dummy = new StyleSheetResolve().freeze();
+  /**
+   * Parsed Foundry core stylesheet with extended game system / module overrides.
+   *
+   * @type {StyleSheetResolve}
+   */
+  static #ext;
+  static #initialized = false;
+  /**
+   * @hideconstructor
+   */
+  constructor() {
+    throw new Error("FoundryStyles constructor: This is a static class and should not be constructed.");
+  }
+  /**
+   * @returns {StyleSheetResolve} Core parsed styles.
+   */
+  static get core() {
+    if (!this.#initialized) {
+      this.#initialize();
+    }
+    return this.#core ?? this.#dummy;
+  }
+  /**
+   * @returns {StyleSheetResolve} Core parsed styles with extended game system / module overrides.
+   */
+  static get ext() {
+    if (!this.#initialized) {
+      this.#initialize();
+    }
+    return this.#ext ?? this.#dummy;
+  }
+  // Internal Implementation ----------------------------------------------------------------------------------------
+  /**
+   * Find the core Foundry CSSStyleSheet instance and any 3rd party game system / module stylesheets.
+   *
+   * Resolve the core sheet and then create the extended resolved style sheet merging the core with all system / module
+   * sheets.
+   */
+  static #initialize() {
+    this.#initialized = true;
+    const styleSheets = Array.from(document.styleSheets);
+    let foundryStyleSheet;
+    const moduleSheets = [];
+    const systemSheets = [];
+    const failedSheets = [];
+    for (let i = 0; i < styleSheets.length; i++) {
+      const sheet = styleSheets[i];
+      if (typeof sheet?.href === "string") {
+        try {
+          if (sheet.href.endsWith("/css/foundry2.css") && sheet?.cssRules?.length) {
+            foundryStyleSheet = sheet;
+          }
+        } catch (err) {
+          if (CrossWindow.isDOMException(err, "SecurityException")) {
+            failedSheets.push({ href: sheet.href, core: true });
+          }
+        }
+      } else {
+        try {
+          if (sheet?.cssRules?.length) {
+            for (const rule of sheet.cssRules) {
+              if (!CrossWindow.isCSSImportRule(rule) || !CrossWindow.isCSSStyleSheet(rule?.styleSheet)) {
+                continue;
+              }
+              try {
+                switch (rule?.layerName) {
+                  case "modules":
+                    if (rule.styleSheet?.cssRules?.length) {
+                      moduleSheets.push(rule.styleSheet);
+                    }
+                    break;
+                  case "system":
+                    if (rule.styleSheet?.cssRules?.length) {
+                      systemSheets.push(rule.styleSheet);
+                    }
+                    break;
+                }
+              } catch (err) {
+                if (CrossWindow.isDOMException(err, "SecurityException")) {
+                  failedSheets.push({ href: rule.styleSheet.href, core: false, layer: rule.layerName });
+                }
+              }
+            }
+          }
+        } catch (err) {
+          if (CrossWindow.isDOMException(err, "SecurityException")) {
+            failedSheets.push({ href: "", core: false, layer: "inline-stylesheet" });
+          }
+        }
+      }
+    }
+    if (failedSheets.length) {
+      console.warn(`[TyphonJS Runtime] CORS / SecurityException error: FoundryStyles could not load style sheets: ${JSON.stringify(failedSheets, null, 2)}`);
+    }
+    if (!foundryStyleSheet) {
+      console.warn(`[TyphonJS Runtime] error: FoundryStyles could not load core style sheet.`);
+      return;
+    }
+    this.#resolveCore(foundryStyleSheet);
+    this.#resolveExt(moduleSheets, systemSheets);
+    this.#core.freeze();
+    this.#ext.freeze();
+  }
+  /**
+   * @param {CSSStyleSheet}  sheet - Foundry core style sheet.
+   */
+  static #resolveCore(sheet) {
+    this.#core = StyleSheetResolve.parse(sheet, {
+      // Exclude any selector parts that match the following.
+      excludeSelectorParts: [
+        />\s*[^ ]+/,
+        // Direct child selectors
+        /(^|\s)\*/,
+        // Universal selectors
+        /(^|\s)\.app(?![\w-])/,
+        // AppV1 class
+        /^\.application\.[a-z]/,
+        // All `.application.theme` / any specific core application.
+        /^body\.auth/,
+        /^body(?:\.[\w-]+)*\.application\b/,
+        // Remove unnecessary `body.<theme>.application` pairing.
+        /^\.\u037c\d/i,
+        // Code-mirror `.ͼ1`
+        /code-?mirror/i,
+        /(^|[^a-zA-Z0-9_-])#(?!context-menu\b)[\w-]+|[^ \t>+~]#context-menu\b/,
+        /^\.faded-ui/,
+        /(^|\s)kbd\b/,
+        /^input.placeholder-fa-solid\b/,
+        /(^|\s)label\b/,
+        /^\.mixin-theme/,
+        // Remove all mixin related styles left in by core.
+        /prose-?mirror/i,
+        /(^|\s)section\b/,
+        /\.window-app/,
+        // Exclude various core applications.
+        /^\.active-effect-config/,
+        /^\.adventure-importer/,
+        /^\.camera-view/,
+        /#camera-views/,
+        /^\.card-config/,
+        /^\.cards-config/,
+        /^\.category-browser/,
+        /^\.chat-message/,
+        /^\.chat-sidebar/,
+        /\.combat-sidebar/,
+        /\.compendium-directory/,
+        /\.compendium-sidebar/,
+        /^\.document-ownership/,
+        /^\.effects-tooltip/,
+        /^\.journal-category-config/,
+        /\.journal-entry-page/,
+        /^\.macro-config/,
+        /^\.package-list/,
+        /^\.playlists-sidebar/,
+        /\.placeable-hud/,
+        /^\.region-config/,
+        /^\.roll-table-sheet/,
+        /^\.scene-config/,
+        /^\.scenes-sidebar/,
+        /\.settings-sidebar/,
+        /^\.sheet.journal-entry/,
+        /^\.template-config/,
+        /^\.token-config/,
+        /^\.tour/,
+        /\.ui-control/,
+        /^\.wall-config/
+      ],
+      // Only parse CSS layers matching the following regexes.
+      includeCSSLayers: [
+        /^applications$/,
+        /^blocks.ui$/,
+        /^elements/,
+        /^variables\.base$/,
+        /^variables\.themes/
+      ]
+    });
+  }
+  /**
+   * @param {CSSStyleSheet[]}   moduleSheets - Module stylesheet data.
+   *
+   * @param {CSSStyleSheet[]}   systemSheets - System stylesheet data.
+   */
+  static #resolveExt(moduleSheets, systemSheets) {
+    const resolvedSheets = [];
+    const options = { includeSelectorPartSet: /* @__PURE__ */ new Set([...this.#core.keys()]) };
+    for (const sheet of systemSheets) {
+      resolvedSheets.push(StyleSheetResolve.parse(sheet, options));
+    }
+    for (const sheet of moduleSheets) {
+      resolvedSheets.push(StyleSheetResolve.parse(sheet, options));
+    }
+    this.#ext = this.#core.clone();
+    for (const sheet of resolvedSheets) {
+      this.#ext.merge(sheet);
+    }
+  }
+}
 class SvelteApp extends Application {
+  /**
+   * Disable Foundry v13+ warnings for AppV1.
+   *
+   * @type {boolean}
+   * @internal
+   */
+  static _warnedAppV1 = true;
   static #MIN_WINDOW_HEIGHT = 50;
   static #MIN_WINDOW_WIDTH = 200;
   /**
@@ -13048,6 +15461,10 @@ class SvelteApp extends Application {
    */
   #gateSetPosition = false;
   /**
+   * Tracks initial `popOut` state. `handleAlwaysOnTop` will return the `popOut` state to this value.
+   */
+  #initialPopOut;
+  /**
    * Stores initial z-index from `_renderOuter` to set to target element / Svelte component.
    *
    * @type {number}
@@ -13081,7 +15498,7 @@ class SvelteApp extends Application {
    * Provides a helper class that combines multiple methods for interacting with the mounted components tracked in
    * #svelteData.
    *
-   * @type {import('./types').SvelteApp.API.Svelte<Options>}
+   * @type {import('./types').SvelteApp.API.Svelte<import('./types').SvelteApp.Options>}
    */
   #getSvelteData = new GetSvelteData(this.#applicationShellHolder, this.#svelteData);
   /**
@@ -13098,6 +15515,12 @@ class SvelteApp extends Application {
     if (!isObject(this.options.svelte)) {
       throw new Error(`SvelteApp - constructor - No Svelte configuration object found in 'options'.`);
     }
+    if (Array.isArray(this.options.classes)) {
+      this.options.classes = this.options.classes.filter(
+        (entry) => entry !== "themed" && !entry?.startsWith("theme-")
+      );
+    }
+    this.#initialPopOut = this.popOut;
     this.#applicationState = new ApplicationState(this);
     this.#position = new TJSPosition(this, {
       ...this.position,
@@ -13115,7 +15538,7 @@ class SvelteApp extends Application {
         }
       }
     });
-    this.#reactive = new SvelteReactive(this);
+    this.#reactive = new SvelteReactive(this, this.#initialPopOut);
     this.#stores = this.#reactive.initialize();
   }
   /**
@@ -13128,12 +15551,16 @@ class SvelteApp extends Application {
     return (
       /** @type {import('./types').SvelteApp.Options} */
       deepMerge(super.defaultOptions, {
+        alwaysOnTop: false,
+        // Assigned to position. When true, the app window is floated always on top.
+        containerQueryType: "inline-size",
+        // App window content container query type.
         defaultCloseAnimation: true,
-        // If false the default slide close animation is not run.
+        // If false, the default slide close animation is not run.
         draggable: true,
-        // If true then application shells are draggable.
+        // If true, then application shells are draggable.
         focusAuto: true,
-        // When true auto-management of app focus is enabled.
+        // When true, auto-management of app focus is enabled.
         focusKeep: false,
         // When `focusAuto` and `focusKeep` is true; keeps internal focus.
         focusSource: void 0,
@@ -13141,29 +15568,35 @@ class SvelteApp extends Application {
         focusTrap: true,
         // When true focus trapping / wrapping is enabled keeping focus inside app.
         headerButtonNoClose: false,
-        // If true then the close header button is removed.
+        // If true, then the close header button is removed.
         headerButtonNoLabel: false,
-        // If true then header button labels are removed for application shells.
+        // If true, then the header button labels are removed for application shells.
         headerIcon: void 0,
         // Sets a header icon given an image URL.
         headerNoTitleMinimized: false,
-        // If true then header title is hidden when application is minimized.
+        // If true, then the header title is hidden when the application is minimized.
+        maxHeight: void 0,
+        // Assigned to position. Number specifying maximum window height.
+        maxWidth: void 0,
+        // Assigned to position. Number specifying maximum window width.
         minHeight: SvelteApp.#MIN_WINDOW_HEIGHT,
         // Assigned to position. Number specifying minimum window height.
         minWidth: SvelteApp.#MIN_WINDOW_WIDTH,
         // Assigned to position. Number specifying minimum window width.
         positionable: true,
-        // If false then `position.set` does not take effect.
+        // If false, then `position.set` does not take effect.
         positionInitial: TJSPosition.Initial.browserCentered,
         // A helper for initial position placement.
         positionOrtho: true,
-        // When true TJSPosition is optimized for orthographic use.
+        // When true, TJSPosition is optimized for orthographic use.
         positionValidator: TJSPosition.Validators.transformWindow,
         // A function providing the default validator.
         sessionStorage: void 0,
         // An instance of WebStorage (session) to share across SvelteApps.
         svelte: void 0,
         // A Svelte configuration object.
+        themeName: void 0,
+        // An explicit theme name to apply.
         transformOrigin: "top left"
         // By default, 'top / left' respects rotation when minimizing.
       })
@@ -13239,8 +15672,19 @@ class SvelteApp extends Application {
     if (this.reactive.activeWindow !== globalThis) {
       return;
     }
-    if (force || this.popOut) {
-      super.bringToTop();
+    if (typeof this?.options?.positionable === "boolean" && !this.options.positionable) {
+      return;
+    }
+    if (force || globalThis.ui.activeWindow !== this) {
+      const z = this.position.zIndex;
+      if (this.popOut && z < foundry.applications.api.ApplicationV2._maxZ) {
+        this.position.zIndex = Math.min(++foundry.applications.api.ApplicationV2._maxZ, 99999);
+      } else if (!this.popOut && this.options.alwaysOnTop) {
+        const newAlwaysOnTopZIndex = globalThis?.TRL_SVELTE_APP_DATA?.alwaysOnTop?.getAndIncrement();
+        if (typeof newAlwaysOnTopZIndex === "number") {
+          this.position.zIndex = newAlwaysOnTopZIndex;
+        }
+      }
     }
     const elementTarget = this.elementTarget;
     const activeElement = document.activeElement;
@@ -13356,7 +15800,15 @@ class SvelteApp extends Application {
    * @protected
    */
   _getHeaderButtons() {
-    return super._getHeaderButtons();
+    const buttons = super._getHeaderButtons();
+    const closeButton = buttons.find((entry) => entry?.class === "close");
+    if (closeButton) {
+      closeButton.onclick = () => {
+        globalThis?.game?.tooltip?.deactivate?.();
+        this.close();
+      };
+    }
+    return buttons;
   }
   /**
    * Inject the Svelte components defined in `this.options.svelte`. The Svelte component can attach to the existing
@@ -13421,7 +15873,7 @@ ${JSON.stringify(this.options.svelte)}`
    * @param {number}   [opts.duration=0.1] - Controls content area animation duration in seconds.
    */
   async maximize({ animate = true, duration = 0.1 } = {}) {
-    if (!this.popOut || [false, null].includes(this._minimized)) {
+    if (!this.popOut && !this.options.alwaysOnTop || [false, null].includes(this._minimized)) {
       return;
     }
     this._minimized = null;
@@ -13436,6 +15888,7 @@ ${JSON.stringify(this.options.svelte)}`
         async: true,
         animateTo: true,
         properties: ["width"],
+        cancelable: false,
         duration: 0.1
       });
     }
@@ -13451,6 +15904,7 @@ ${JSON.stringify(this.options.svelte)}`
         animateTo: true,
         properties: ["height"],
         remove: true,
+        cancelable: false,
         duration
       }));
     } else {
@@ -13491,7 +15945,7 @@ ${JSON.stringify(this.options.svelte)}`
    * @param {number}   [opts.duration=0.1] - Controls content area animation duration in seconds.
    */
   async minimize({ animate = true, duration = 0.1 } = {}) {
-    if (!this.rendered || !this.popOut || [true, null].includes(this._minimized)) {
+    if (!this.rendered || !this.popOut && !this.options.alwaysOnTop || [true, null].includes(this._minimized)) {
       return;
     }
     this.#stores.uiStateUpdate((options) => deepMerge(options, { minimized: true }));
@@ -13532,11 +15986,12 @@ ${JSON.stringify(this.options.svelte)}`
     const headerOffsetHeight = header.offsetHeight;
     this.position.minHeight = headerOffsetHeight;
     if (animate) {
-      await this.position.animate.to({ height: headerOffsetHeight }, { duration }).finished;
+      await this.position.animate.to({ height: headerOffsetHeight }, { cancelable: false, duration }).finished;
     }
     for (let cntr = header.children.length; --cntr >= 0; ) {
-      const className = header.children[cntr].className;
-      if (className.includes("window-title") || className.includes("close")) {
+      let className = header.children[cntr]?.className;
+      className = className?.baseVal ?? className;
+      if (typeof className !== "string" || className.includes("window-title") || className.includes("close")) {
         continue;
       }
       if (className.includes("keep-minimized")) {
@@ -13546,7 +16001,10 @@ ${JSON.stringify(this.options.svelte)}`
       header.children[cntr].style.display = "none";
     }
     if (animate) {
-      await this.position.animate.to({ width: SvelteApp.#MIN_WINDOW_WIDTH }, { duration: 0.1 }).finished;
+      await this.position.animate.to({ width: SvelteApp.#MIN_WINDOW_WIDTH }, {
+        cancelable: false,
+        duration: 0.1
+      }).finished;
     }
     element2.classList.add("minimized");
     this._minimized = true;
@@ -13607,7 +16065,8 @@ ${JSON.stringify(this.options.svelte)}`
       return;
     }
     this.#gateSetPosition = true;
-    await super._render(force, options);
+    const popOut = typeof this.options.alwaysOnTop === "boolean" && this.options.alwaysOnTop ? false : this.popOut;
+    await super._render(force, { ...options, popOut });
     this.#gateSetPosition = false;
     if ([Application.RENDER_STATES.CLOSING, Application.RENDER_STATES.RENDERING].includes(this._state)) {
       return;
@@ -13633,9 +16092,12 @@ ${JSON.stringify(this.options.svelte)}`
       });
     }
     if (!this.#onMount) {
-      TJSAppIndex.add(this);
-      this.onSvelteMount();
       this.#onMount = true;
+      TJSAppIndex.add(this);
+      if (typeof this.options.alwaysOnTop === "boolean" && this.options.alwaysOnTop) {
+        handleAlwaysOnTop(this, true, this.#initialPopOut);
+      }
+      nextAnimationFrame().then(() => this.onSvelteMount());
     }
   }
   /**
@@ -13699,7 +16161,13 @@ ${JSON.stringify(this.options.svelte)}`
         this.position.set(this.position.get());
       }
       super._activateCoreListeners([this.popOut ? this.#elementTarget?.firstChild : this.#elementTarget]);
-      this.onSvelteRemount();
+      if (typeof this.options.alwaysOnTop === "boolean" && this.options.alwaysOnTop) {
+        handleAlwaysOnTop(this, true, this.#initialPopOut);
+      }
+      nextAnimationFrame().then(() => {
+        this.render();
+        this.onSvelteRemount();
+      });
     }
   }
 }
@@ -13735,128 +16203,609 @@ class PopoutSupport {
     }
   }
 }
-class ThemeObserver {
+class SvelteAppData {
+  static #initialized = false;
   /**
-   * All readable theme stores.
-   *
-   * @type {Readonly<({
-   *    theme: Readonly<import('#svelte/store').Readable<'theme-dark' | 'theme-light'>>,
-   *    themeDark: Readonly<import('#svelte/store').Readable<boolean>>,
-   *    themeLight: Readonly<import('#svelte/store').Readable<boolean>>,
-   * })>}
+   * @returns {number} Version number for SvelteAppData.
    */
-  static #stores;
-  /**
-   * Internal setter for theme stores.
-   *
-   * @type {({
-   *    theme: Function,
-   *    themeDark: Function,
-   *    themeLight: Function,
-   * })}
-   */
-  static #storeSet;
-  /**
-   * Current theme.
-   *
-   * @type {string}
-   */
-  static #theme = "";
-  /**
-   * @returns {Readonly<({
-   *    theme: Readonly<import('#svelte/store').Readable<'theme-dark' | 'theme-light'>>,
-   *    themeDark: Readonly<import('#svelte/store').Readable<boolean>>,
-   *    themeLight: Readonly<import('#svelte/store').Readable<boolean>>,
-   * })>} Current core theme stores.
-   */
-  static get stores() {
-    return this.#stores;
+  static get VERSION() {
+    return 1;
   }
-  /**
-   * @returns {'theme-dark' | 'theme-light'} Current core theme.
-   */
-  static get theme() {
-    return this.#theme;
+  static get alwaysOnTop() {
+    return AlwaysOnTop;
   }
-  /**
-   * @returns {boolean} Is the core theme `dark`.
-   */
-  static get themeDark() {
-    return this.#theme === "theme-dark";
-  }
-  /**
-   * @returns {boolean} Is the core theme `light`.
-   */
-  static get themeLight() {
-    return this.#theme === "theme-light";
-  }
-  /**
-   * Helper to apply current core theme to a given SvelteApp optional classes.
-   *
-   * @param {import('@typhonjs-fvtt/runtime/svelte/application').SvelteApp} application - Svelte application.
-   *
-   * @param {object} [options] - Options.
-   *
-   * @param {boolean} [options.hasThemed] - Verify that the original application default options contains the `themed`
-   *        class otherwise do not add the core theme classes.
-   *
-   * @returns {string} App classes CSS string with current core theme applied.
-   */
-  static appClasses(application, { hasThemed = false } = {}) {
-    const classes = /* @__PURE__ */ new Set([
-      ...Array.isArray(application?.options?.classes) ? application.options.classes : []
-    ]);
-    classes.delete("themed");
-    classes.delete("theme-light");
-    if (!hasThemed) {
-      classes.add("themed");
-      classes.add(this.#theme);
-    } else {
-      const origOptions = application.constructor.defaultOptions;
-      if (origOptions?.classes?.includes("themed")) {
-        classes.add("themed");
-        classes.add(this.#theme);
-      }
-    }
-    return Array.from(classes).join(" ");
-  }
-  /**
-   * Initialize `document.body` theme observation.
-   */
   static initialize() {
-    if (this.#stores !== void 0) {
+    if (this.#initialized) {
       return;
     }
-    const themeStore = writable(this.#theme);
-    const themeDarkStore = writable(false);
-    const themeLightStore = writable(false);
-    this.#stores = Object.freeze({
-      theme: Object.freeze({ subscribe: themeStore.subscribe }),
-      themeDark: Object.freeze({ subscribe: themeDarkStore.subscribe }),
-      themeLight: Object.freeze({ subscribe: themeLightStore.subscribe })
-    });
-    this.#storeSet = {
-      theme: themeStore.set,
-      themeDark: themeDarkStore.set,
-      themeLight: themeLightStore.set
-    };
-    const observer = new MutationObserver(() => {
-      if (document.body.classList.contains("theme-light")) {
-        this.#theme = "theme-light";
-        this.#storeSet.themeDark(false);
-        this.#storeSet.themeLight(true);
-      } else if (document.body.classList.contains("theme-dark")) {
-        this.#theme = "theme-dark";
-        this.#storeSet.themeDark(true);
-        this.#storeSet.themeLight(false);
-      }
-      this.#storeSet.theme(this.#theme);
-    });
-    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    this.#initialized = true;
+    const currentVersion = globalThis?.TRL_SVELTE_APP_DATA?.VERSION;
+    if (typeof currentVersion !== "number" || currentVersion < this.VERSION) {
+      globalThis.TRL_SVELTE_APP_DATA = this;
+    }
   }
 }
+class AlwaysOnTop {
+  /**
+   * Stores the max z-index.
+   *
+   * @type {number}
+   */
+  static #max = 2 ** 31 - 1e3;
+  /**
+   * Stores the min z-index.
+   *
+   * @type {number}
+   */
+  static #min = 2 ** 31 - 1e5;
+  /**
+   * Stores the current z-index for the top most `alwaysOnTop` app.
+   *
+   * @type {number}
+   */
+  static #current = this.#min;
+  /**
+   * @returns {number} Increments the current always on top z-index and returns it.
+   */
+  static getAndIncrement() {
+    this.#current = Math.min(++this.#current, this.#max);
+    return this.#current;
+  }
+  static get current() {
+    return this.#current;
+  }
+  static get max() {
+    return this.#max;
+  }
+  static get min() {
+    return this.#min;
+  }
+}
+SvelteAppData.initialize();
 ThemeObserver.initialize();
 PopoutSupport.initialize();
+function getRoutePrefix(url) {
+  return globalThis.foundry.utils.getRoute(url);
+}
+const cursorCSSVariables = {
+  "--tjs-cursor-all-scroll": "all-scroll",
+  "--tjs-cursor-all-scroll-down": "all-scroll",
+  "--tjs-cursor-alias": "alias",
+  "--tjs-cursor-alias-down": "alias",
+  "--tjs-cursor-cell": "cell",
+  "--tjs-cursor-cell-down": "cell",
+  "--tjs-cursor-copy": "copy",
+  "--tjs-cursor-copy-down": "copy",
+  "--tjs-cursor-context-menu": "context-menu",
+  "--tjs-cursor-context-menu-down": "context-menu",
+  "--tjs-cursor-crosshair": "crosshair",
+  "--tjs-cursor-crosshair-down": "crosshair",
+  "--tjs-cursor-default": "default",
+  "--tjs-cursor-default-down": "default",
+  "--tjs-cursor-grab": "grab",
+  "--tjs-cursor-grab-down": "var(--tjs-cursor-grabbing, grabbing)",
+  "--tjs-cursor-grabbing": "grabbing",
+  "--tjs-cursor-grabbing-down": "grabbing",
+  "--tjs-cursor-help": "help",
+  "--tjs-cursor-help-down": "help",
+  "--tjs-cursor-pointer": "pointer",
+  "--tjs-cursor-pointer-down": "pointer",
+  "--tjs-cursor-move": "move",
+  "--tjs-cursor-move-down": "move",
+  "--tjs-cursor-no-drop": "no-drop",
+  "--tjs-cursor-no-drop-down": "no-drop",
+  "--tjs-cursor-not-allowed": "not-allowed",
+  "--tjs-cursor-not-allowed-down": "not-allowed",
+  "--tjs-cursor-progress": "progress",
+  "--tjs-cursor-progress-down": "progress",
+  "--tjs-cursor-resize-col": "col-resize",
+  "--tjs-cursor-resize-col-down": "col-resize",
+  "--tjs-cursor-resize-e": "e-resize",
+  "--tjs-cursor-resize-e-down": "e-resize",
+  "--tjs-cursor-resize-ew": "ew-resize",
+  "--tjs-cursor-resize-ew-down": "ew-resize",
+  "--tjs-cursor-resize-n": "n-resize",
+  "--tjs-cursor-resize-n-down": "n-resize",
+  "--tjs-cursor-resize-ne": "ne-resize",
+  "--tjs-cursor-resize-ne-down": "ne-resize",
+  "--tjs-cursor-resize-nesw": "nesw-resize",
+  "--tjs-cursor-resize-nesw-down": "nesw-resize",
+  "--tjs-cursor-resize-ns": "ns-resize",
+  "--tjs-cursor-resize-ns-down": "ns-resize",
+  "--tjs-cursor-resize-nw": "nw-resize",
+  "--tjs-cursor-resize-nw-down": "nw-resize",
+  "--tjs-cursor-resize-nwse": "nwse-resize",
+  "--tjs-cursor-resize-nwse-down": "nwse-resize",
+  "--tjs-cursor-resize-row": "row-resize",
+  "--tjs-cursor-resize-row-down": "row-resize",
+  "--tjs-cursor-resize-s": "s-resize",
+  "--tjs-cursor-resize-s-down": "s-resize",
+  "--tjs-cursor-resize-se": "se-resize",
+  "--tjs-cursor-resize-se-down": "se-resize",
+  "--tjs-cursor-resize-sw": "sw-resize",
+  "--tjs-cursor-resize-sw-down": "sw-resize",
+  "--tjs-cursor-resize-w": "w-resize",
+  "--tjs-cursor-resize-w-down": "w-resize",
+  "--tjs-cursor-text": "text",
+  "--tjs-cursor-text-down": "text",
+  "--tjs-cursor-text-vertical": "vertical-text",
+  "--tjs-cursor-text-vertical-down": "vertical-text",
+  "--tjs-cursor-wait": "wait",
+  "--tjs-cursor-wait-down": "wait",
+  "--tjs-cursor-zoom-in": "zoom-in",
+  "--tjs-cursor-zoom-in-down": "zoom-in",
+  "--tjs-cursor-zoom-out": "zoom-out",
+  "--tjs-cursor-zoom-out-down": "zoom-out"
+};
+class FVTTAppTheme {
+  /**
+   * Generate all app classes with applied core or explicitly set theme.
+   *
+   * @param {Set<string>} activeClasses - Active app classes Set.
+   *
+   * @param {string} coreTheme - Current core theme class.
+   *
+   * @param {string} appThemeName - Any explicitly set app theme name override.
+   *
+   * @returns {string} All app classes.
+   */
+  static appClasses(activeClasses, coreTheme, appThemeName) {
+    const classes = new Set(activeClasses);
+    for (const entry of classes) {
+      if (entry.startsWith("theme-")) {
+        classes.delete(entry);
+      }
+    }
+    classes.add("themed");
+    classes.add(appThemeName ? `theme-${appThemeName}` : coreTheme);
+    return Array.from(classes).join(" ");
+  }
+}
+class FVTTConfigure {
+  static #initialized = false;
+  static initialize() {
+    if (this.#initialized) {
+      return;
+    }
+    const manager = StyleManager.create({
+      id: "__tjs-runtime-vars",
+      version: "0.1.1",
+      layerName: "variables.tjs-runtime-vars",
+      rules: {
+        themeDark: "body, .themed.theme-dark",
+        themeLight: ".themed.theme-light"
+      }
+    });
+    if (!manager?.isConnected) {
+      this.#initialized = true;
+      return;
+    }
+    this.#initialized = true;
+    document?.["#__trl-root-styles"]?.remove?.();
+    const themeDarkRoot = manager.get("themeDark");
+    const themeLight = manager.get("themeLight");
+    Hooks.once("ready", () => this.#setCoreInlineStyles(themeDarkRoot));
+    themeDarkRoot.setProperties(cursorCSSVariables);
+    this.#app(themeDarkRoot, themeLight);
+    Hooks.on("PopOut:loading", (app, popout) => {
+      popout.document.addEventListener(
+        "DOMContentLoaded",
+        () => manager.clone({ document: popout.document, force: true })
+      );
+    });
+  }
+  /**
+   * @param {import('@typhonjs-fvtt/runtime/util/dom/style').StyleManager.RuleManager}  themeDarkRoot -
+   *
+   * @param {import('@typhonjs-fvtt/runtime/util/dom/style').StyleManager.RuleManager}  themeLight -
+   */
+  static #app(themeDarkRoot, themeLight) {
+    const opts = { camelCase: true };
+    const propsApp = FoundryStyles.ext.get(".application", opts);
+    const propsAppDark = FoundryStyles.ext.get(".application", { ...opts, resolve: [
+      ".themed.theme-dark .application"
+    ] });
+    const propsAppHeader = FoundryStyles.ext.get(".application .window-header", { ...opts, resolve: [
+      ".application",
+      ".themed.theme-dark .application"
+    ] });
+    const propsAppHeaderBtn = FoundryStyles.ext.get(".application .window-header button.header-control", opts);
+    const propsAppHandle = FoundryStyles.ext.get(".application .window-resize-handle", opts);
+    const propsAppHandleDark = FoundryStyles.ext.get(".themed.theme-dark.application .window-resize-handle", opts);
+    const propsBody = FoundryStyles.ext.get("body", opts);
+    themeDarkRoot.setProperties({
+      // `:root` properties applying to all themes ----------------------------------------------------------------
+      // For `TJSApplicationShell.svelte` app background.
+      "--tjs-app-background": `url(${getRoutePrefix("/ui/denim075.png")})`,
+      "--tjs-app-color": propsApp?.color ?? "var(--color-text-primary)",
+      "--tjs-app-font-family": propsBody?.fontFamily ?? "var(--font-body)",
+      "--tjs-app-font-size": propsApp?.fontSize ?? "var(--font-size-14)",
+      // For `TJSApplicationHeader.svelte`
+      "--tjs-app-header-flex": propsAppHeader?.flex ?? "0 0 var(--header-height)",
+      "--tjs-app-header-font-size": propsAppHeader?.fontSize ?? "var(--font-size-13)",
+      "--tjs-app-header-height": propsApp?.["--header-height"] ?? "36px",
+      // For `TJSHeaderButton.svelte / core only provides one set of properties across themes.
+      "--tjs-app-header-button-border": propsAppHeaderBtn?.border ?? "none",
+      "--tjs-app-header-button-margin": propsAppHeaderBtn?.margin ?? "0",
+      "--tjs-app-header-button-size": propsAppHeaderBtn?.["--button-size"] ?? "1.5rem",
+      "--tjs-app-header-button-color": propsAppHeaderBtn?.["--button-text-color"] ?? "var(--color-light-1)",
+      // For `ResizeHandle.svelte` / the resize handle.
+      "--tjs-app-resize-handle-background": propsAppHandle?.background ?? `url(${getRoutePrefix("/ui/resize-handle.webp")}) center center / contain no-repeat transparent`,
+      "--tjs-app-resize-handle-inset": propsAppHandle?.inset ?? "auto 1px 1px auto",
+      "--tjs-app-resize-handle-position": propsAppHandle?.position ?? "absolute",
+      "--tjs-app-resize-handle-height": propsAppHandle?.height ?? "11x",
+      "--tjs-app-resize-handle-width": propsAppHandle?.width ?? "11px",
+      // Explicit dark theme properties ---------------------------------------------------------------------------
+      // For `TJSApplicationShell.svelte`.
+      "--tjs-app-border": propsAppDark?.border ?? "1px solid var(--color-cool-4)",
+      // For `TJSApplicationHeader.svelte
+      "--tjs-app-header-background": propsAppHeader?.background ?? "rgba(0, 0, 0, 0.5)",
+      "--tjs-app-header-border-bottom": propsAppHeader?.borderBottom ?? "1px solid var(--color-cool-4)",
+      "--tjs-app-header-color": propsAppHeader?.color ?? "var(--color-light-1)",
+      // For `ResizeHandle.svelte` / invert the resize handle.
+      "--tjs-app-resize-handle-filter": propsAppHandleDark?.filter ?? "invert(1)"
+    });
+    const propsAppLight = FoundryStyles.ext.get(".application", {
+      camelCase: true,
+      resolve: "body.theme-light .application"
+    });
+    const propsAppHeaderLight = FoundryStyles.ext.get(".application .window-header", {
+      camelCase: true,
+      resolve: "body.theme-light .application"
+    });
+    themeLight.setProperties({
+      // For `TJSApplicationShell.svelte`.
+      "--tjs-app-border": propsAppLight?.border ?? "1px solid var(--color-cool-4)",
+      // For `TJSApplicationHeader.svelte`
+      "--tjs-app-header-background": propsAppHeaderLight?.background ?? "var(--color-dark-3)",
+      "--tjs-app-header-border-bottom": propsAppHeaderLight?.borderBottom ?? "1px solid green",
+      // '1px solid var(--color-cool-4)',
+      // For `ResizeHandle.svelte` / cancel invert of the resize handle / there is no core style to set.
+      "--tjs-app-resize-handle-filter": "none"
+    });
+  }
+  /**
+   * Sets any top level inline styles to TRL CSS variables defined in root `<html>` element by Foundry or game system
+   * override.
+   *
+   * @param {import('@typhonjs-fvtt/runtime/util/dom/style').StyleManager.RuleManager}   ruleManager - Target rule manager.
+   */
+  static #setCoreInlineStyles(ruleManager) {
+    const htmlStyles = StyleParse.cssText(document.documentElement.style.cssText);
+    for (const key in htmlStyles) {
+      if (key.startsWith("--cursor-")) {
+        const tjsCursorKey = key.replace(/^--cursor-/, "--tjs-cursor-");
+        if (ruleManager.hasProperty(tjsCursorKey)) {
+          ruleManager.setProperty(tjsCursorKey, htmlStyles[key]);
+        }
+      }
+    }
+  }
+}
+class ResizeObserverManager {
+  /** @type {Map<HTMLElement, import('./types-local').ResizeObserverSubscriber[]>} */
+  #elMap = /* @__PURE__ */ new Map();
+  /** @type {ResizeObserver} */
+  #resizeObserver;
+  /**
+   * Defines the various shape / update type of the given target.
+   *
+   * @type {{ [key: string]: number }}
+   */
+  static #updateTypes = Object.freeze({
+    none: 0,
+    attribute: 1,
+    function: 2,
+    resizeObserved: 3,
+    setContentBounds: 4,
+    setDimension: 5,
+    storeObject: 6,
+    storesObject: 7
+  });
+  constructor() {
+    this.#resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const subscribers = this.#elMap.get(entry?.target);
+        if (Array.isArray(subscribers)) {
+          const contentWidth = entry.contentRect.width;
+          const contentHeight = entry.contentRect.height;
+          for (const subscriber of subscribers) {
+            ResizeObserverManager.#updateSubscriber(subscriber, contentWidth, contentHeight);
+          }
+        }
+      }
+    });
+  }
+  /**
+   * Add an {@link HTMLElement} and {@link ResizeObserverData.ResizeTarget} instance for monitoring. Create cached
+   * style attributes for the given element include border & padding dimensions for offset width / height calculations.
+   *
+   * @param {HTMLElement}    el - The element to observe.
+   *
+   * @param {import('./types').ResizeObserverData.ResizeTarget} target - A target that contains one of several
+   *        mechanisms for updating resize data.
+   */
+  add(el, target) {
+    if (!CrossWindow.isHTMLElement(el)) {
+      throw new TypeError(`ResizeObserverManager.add error: 'el' is not a HTMLElement.`);
+    }
+    if (this.#hasTarget(el, target)) {
+      return;
+    }
+    const updateType = ResizeObserverManager.#getUpdateType(target);
+    if (updateType === 0) {
+      throw new Error(`ResizeObserverManager.add error: 'target' is not a valid ResizeObserverManager target.`);
+    }
+    const computed = globalThis.getComputedStyle(el);
+    const borderBottom = StyleParse.pixels(el.style.borderBottom) ?? StyleParse.pixels(computed.borderBottom) ?? 0;
+    const borderLeft = StyleParse.pixels(el.style.borderLeft) ?? StyleParse.pixels(computed.borderLeft) ?? 0;
+    const borderRight = StyleParse.pixels(el.style.borderRight) ?? StyleParse.pixels(computed.borderRight) ?? 0;
+    const borderTop = StyleParse.pixels(el.style.borderTop) ?? StyleParse.pixels(computed.borderTop) ?? 0;
+    const paddingBottom = StyleParse.pixels(el.style.paddingBottom) ?? StyleParse.pixels(computed.paddingBottom) ?? 0;
+    const paddingLeft = StyleParse.pixels(el.style.paddingLeft) ?? StyleParse.pixels(computed.paddingLeft) ?? 0;
+    const paddingRight = StyleParse.pixels(el.style.paddingRight) ?? StyleParse.pixels(computed.paddingRight) ?? 0;
+    const paddingTop = StyleParse.pixels(el.style.paddingTop) ?? StyleParse.pixels(computed.paddingTop) ?? 0;
+    const data = {
+      updateType,
+      target,
+      // Stores most recent contentRect.width and contentRect.height values from ResizeObserver.
+      contentWidth: 0,
+      contentHeight: 0,
+      // Convenience data for total border & padding for offset width & height calculations.
+      styles: {
+        additionalWidth: borderLeft + borderRight + paddingLeft + paddingRight,
+        additionalHeight: borderTop + borderBottom + paddingTop + paddingBottom
+      }
+    };
+    if (this.#elMap.has(el)) {
+      const subscribers = this.#elMap.get(el);
+      subscribers.push(data);
+    } else {
+      this.#elMap.set(el, [data]);
+    }
+    this.#resizeObserver.observe(el);
+  }
+  /**
+   * Clears and unobserves all currently tracked elements and managed targets.
+   */
+  clear() {
+    for (const el of this.#elMap.keys()) {
+      this.#resizeObserver.unobserve(el);
+    }
+    this.#elMap.clear();
+  }
+  /**
+   * Removes all {@link ResizeObserverData.ResizeTarget} instances for the given element from monitoring when just an
+   * element is provided otherwise removes a specific target from the monitoring map. If no more targets remain then
+   * the element is removed from monitoring.
+   *
+   * @param {HTMLElement} el - Element to remove from monitoring.
+   *
+   * @param {import('./types').ResizeObserverData.ResizeTarget} [target] - A specific target to remove from monitoring.
+   */
+  remove(el, target = void 0) {
+    const subscribers = this.#elMap.get(el);
+    if (Array.isArray(subscribers)) {
+      if (target !== void 0) {
+        const index = subscribers.findIndex((entry) => entry.target === target);
+        if (index >= 0) {
+          subscribers.splice(index, 1);
+        }
+      } else {
+        subscribers.length = 0;
+      }
+      if (subscribers.length === 0) {
+        this.#elMap.delete(el);
+        this.#resizeObserver.unobserve(el);
+      }
+    }
+  }
+  /**
+   * Provides a function that when invoked with an element updates the cached styles for each subscriber of the
+   * element.
+   *
+   * The style attributes cached to calculate offset height / width include border & padding dimensions. You only need
+   * to update the cache if you change border or padding attributes of the element.
+   *
+   * @param {HTMLElement} el - A HTML element.
+   */
+  updateCache(el) {
+    const subscribers = this.#elMap.get(el);
+    if (Array.isArray(subscribers)) {
+      const computed = globalThis.getComputedStyle(el);
+      const borderBottom = StyleParse.pixels(el.style.borderBottom) ?? StyleParse.pixels(computed.borderBottom) ?? 0;
+      const borderLeft = StyleParse.pixels(el.style.borderLeft) ?? StyleParse.pixels(computed.borderLeft) ?? 0;
+      const borderRight = StyleParse.pixels(el.style.borderRight) ?? StyleParse.pixels(computed.borderRight) ?? 0;
+      const borderTop = StyleParse.pixels(el.style.borderTop) ?? StyleParse.pixels(computed.borderTop) ?? 0;
+      const paddingBottom = StyleParse.pixels(el.style.paddingBottom) ?? StyleParse.pixels(computed.paddingBottom) ?? 0;
+      const paddingLeft = StyleParse.pixels(el.style.paddingLeft) ?? StyleParse.pixels(computed.paddingLeft) ?? 0;
+      const paddingRight = StyleParse.pixels(el.style.paddingRight) ?? StyleParse.pixels(computed.paddingRight) ?? 0;
+      const paddingTop = StyleParse.pixels(el.style.paddingTop) ?? StyleParse.pixels(computed.paddingTop) ?? 0;
+      const additionalWidth = borderLeft + borderRight + paddingLeft + paddingRight;
+      const additionalHeight = borderTop + borderBottom + paddingTop + paddingBottom;
+      for (const subscriber of subscribers) {
+        subscriber.styles.additionalWidth = additionalWidth;
+        subscriber.styles.additionalHeight = additionalHeight;
+        ResizeObserverManager.#updateSubscriber(subscriber, subscriber.contentWidth, subscriber.contentHeight);
+      }
+    }
+  }
+  // Internal implementation ----------------------------------------------------------------------------------------
+  /**
+   * Determines the shape of the target instance regarding valid update mechanisms to set width & height changes.
+   *
+   * @param {import('./types').ResizeObserverData.ResizeTarget}  target - The target instance.
+   *
+   * @returns {number} Update type value.
+   */
+  static #getUpdateType(target) {
+    if (typeof target?.resizeObserved === "function") {
+      return this.#updateTypes.resizeObserved;
+    }
+    if (typeof target?.setDimension === "function") {
+      return this.#updateTypes.setDimension;
+    }
+    if (typeof target?.setContentBounds === "function") {
+      return this.#updateTypes.setContentBounds;
+    }
+    const targetType = typeof target;
+    if (targetType !== null && (targetType === "object" || targetType === "function")) {
+      if (isWritableStore(target.resizeObserved)) {
+        return this.#updateTypes.storeObject;
+      }
+      const stores = target?.stores;
+      if (isObject(stores) || typeof stores === "function") {
+        if (isWritableStore(stores.resizeObserved)) {
+          return this.#updateTypes.storesObject;
+        }
+      }
+    }
+    if (targetType !== null && targetType === "object") {
+      return this.#updateTypes.attribute;
+    }
+    if (targetType === "function") {
+      return this.#updateTypes.function;
+    }
+    return this.#updateTypes.none;
+  }
+  /**
+   * Determines if a given element and target is already being observed.
+   *
+   * @param {HTMLElement} el - A HTMLElement.
+   *
+   * @param {import('./types').ResizeObserverData.ResizeTarget} [target] - A specific target to find.
+   *
+   * @returns {boolean} Whether the target is already being tracked for the given element.
+   */
+  #hasTarget(el, target) {
+    if (target === void 0 || target === null) {
+      return false;
+    }
+    const subscribers = this.#elMap.get(el);
+    if (Array.isArray(subscribers)) {
+      return subscribers.findIndex((entry) => entry.target === target) >= 0;
+    }
+    return false;
+  }
+  /**
+   * Updates a subscriber target with given content width & height values. Offset width & height is calculated from
+   * the content values + cached styles.
+   *
+   * @param {import('./types-local').ResizeObserverSubscriber} subscriber - Internal data about subscriber.
+   *
+   * @param {number|undefined}  contentWidth - ResizeObserver `contentRect.width` value or undefined.
+   *
+   * @param {number|undefined}  contentHeight - ResizeObserver `contentRect.height` value or undefined.
+   */
+  static #updateSubscriber(subscriber, contentWidth, contentHeight) {
+    const styles = subscriber.styles;
+    subscriber.contentWidth = contentWidth;
+    subscriber.contentHeight = contentHeight;
+    const offsetWidth = Number.isFinite(contentWidth) ? contentWidth + styles.additionalWidth : void 0;
+    const offsetHeight = Number.isFinite(contentHeight) ? contentHeight + styles.additionalHeight : void 0;
+    const target = subscriber.target;
+    switch (subscriber.updateType) {
+      case this.#updateTypes.attribute:
+        target.contentWidth = contentWidth;
+        target.contentHeight = contentHeight;
+        target.offsetWidth = offsetWidth;
+        target.offsetHeight = offsetHeight;
+        break;
+      case this.#updateTypes.function:
+        target?.(offsetWidth, offsetHeight, contentWidth, contentHeight);
+        break;
+      case this.#updateTypes.resizeObserved:
+        target.resizeObserved?.(offsetWidth, offsetHeight, contentWidth, contentHeight);
+        break;
+      case this.#updateTypes.setContentBounds:
+        target.setContentBounds?.(contentWidth, contentHeight);
+        break;
+      case this.#updateTypes.setDimension:
+        target.setDimension?.(offsetWidth, offsetHeight);
+        break;
+      case this.#updateTypes.storeObject:
+        target.resizeObserved.update((object) => {
+          object.contentHeight = contentHeight;
+          object.contentWidth = contentWidth;
+          object.offsetHeight = offsetHeight;
+          object.offsetWidth = offsetWidth;
+          return object;
+        });
+        break;
+      case this.#updateTypes.storesObject:
+        target.stores.resizeObserved.update((object) => {
+          object.contentHeight = contentHeight;
+          object.contentWidth = contentWidth;
+          object.offsetHeight = offsetHeight;
+          object.offsetWidth = offsetWidth;
+          return object;
+        });
+        break;
+    }
+  }
+}
+const resizeObserverActionManager = new ResizeObserverManager();
+function resizeObserver(node, target) {
+  resizeObserverActionManager.add(node, target);
+  return {
+    /**
+     * @param {import('#runtime/util/dom/observer').ResizeObserverData.ResizeTarget} newTarget - A
+     *        {@link ResizeObserverManager} target to update with observed width & height changes.
+     */
+    update: (newTarget) => {
+      resizeObserverActionManager.remove(node, target);
+      target = newTarget;
+      resizeObserverActionManager.add(node, target);
+    },
+    destroy: () => {
+      resizeObserverActionManager.remove(node, target);
+    }
+  };
+}
+resizeObserver.updateCache = function(el) {
+  resizeObserverActionManager.updateCache(el);
+};
+function dynamicAction(node, { action, data } = {}) {
+  let actionResult;
+  if (typeof action === "function") {
+    actionResult = action(node, data);
+  }
+  return {
+    /**
+     * @param {import('./types').DynamicActionOptions} newOptions - Defines the new action to dynamically mount.
+     */
+    update: (newOptions) => {
+      if (!isObject(newOptions)) {
+        actionResult?.destroy?.();
+        action = void 0;
+        data = void 0;
+        return;
+      }
+      const { action: newAction, data: newData } = newOptions;
+      if (typeof newAction !== "function") {
+        console.warn(`dynamicAction.update warning: Aborting as 'action' is not a function.`);
+        return;
+      }
+      const hasNewData = newData !== data;
+      if (hasNewData) {
+        data = newData;
+      }
+      if (newAction !== action) {
+        actionResult?.destroy?.();
+        action = newAction;
+        actionResult = action(node, data);
+      } else if (hasNewData) {
+        actionResult?.update?.(data);
+      }
+    },
+    destroy: () => {
+      actionResult?.destroy?.();
+      action = void 0;
+      data = void 0;
+      actionResult = void 0;
+    }
+  };
+}
 class TJSDefaultTransition {
   static #options = {};
   static #default = () => void 0;
@@ -13874,10 +16823,16 @@ class TJSDefaultTransition {
   }
 }
 class AppShellContextInternal {
-  /** @type {import('./types').AppShell.Context.Internal.stores} */
+  /** @type {import('./types').AppShell.Context.InternalAppStores} */
   #stores;
   constructor() {
     this.#stores = {
+      // When app shell has content resize observation enabled these stores are updated.
+      contentOffsetWidth: writable(0),
+      contentOffsetHeight: writable(0),
+      contentWidth: writable(0),
+      contentHeight: writable(0),
+      cqEnabled: writable(false),
       elementContent: writable(void 0),
       elementRoot: writable(void 0)
     };
@@ -13885,124 +16840,459 @@ class AppShellContextInternal {
     Object.seal(this);
   }
   /**
-   * @returns {import('./types').AppShell.Context.Internal.stores} The internal context stores for `elementContent` /
-   *          `elementRoot`
+   * @returns {import('./types').AppShell.Context.InternalAppStores} The internal context stores:
+   * - `cqEnabled` - Container query enabled state.
+   * - `elementContent` - The bound elementContent element reference.
+   * - `elementRoot` - The bound elementRoot element reference.
    */
   get stores() {
     return this.#stores;
   }
 }
-function create_fragment$5(ctx) {
-  let button_1;
-  let button_1_class_value;
-  let button_1_data_action_value;
-  let button_1_data_tooltip_value;
-  let applyStyles_action;
+const DIMENSION_REGEX = /^([+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?)\s*([a-zA-Z%]+)?$/;
+function extractDimensionNumberAndUnit(dimension) {
+  const [, num, unit = ""] = dimension.trim().match(DIMENSION_REGEX) ?? [];
+  return { number: parseInt(num, 10), unit };
+}
+function calculateNewDimensions(base, constraint) {
+  const { width, height } = base;
+  if ("width" in constraint) {
+    const { width: constraintWidth } = constraint;
+    return {
+      width: constraintWidth,
+      height: constraintWidth / width * height
+    };
+  }
+  const { height: constraintHeight } = constraint;
+  return {
+    width: constraintHeight / height * width,
+    height: constraintHeight
+  };
+}
+function calculateDimensions(local, remote) {
+  const lWidthStr = local.getAttribute("width");
+  const lHeightStr = local.getAttribute("height");
+  if (lWidthStr && lHeightStr) {
+    return { width: lWidthStr, height: lHeightStr };
+  }
+  const lDimension = { width: lWidthStr || "", height: lHeightStr || "" };
+  const rWidthStr = remote.getAttribute("width");
+  const rHeightStr = remote.getAttribute("height");
+  const rViewBox = remote.getAttribute("viewBox");
+  if (!(rWidthStr && rHeightStr || rViewBox)) {
+    return lDimension;
+  }
+  let rWidth = 0;
+  let rHeight = 0;
+  let rWidthUnit = "";
+  let rHeightUnit = "";
+  if (rWidthStr && rHeightStr) {
+    ({ number: rWidth, unit: rWidthUnit } = extractDimensionNumberAndUnit(rWidthStr));
+    ({ number: rHeight, unit: rHeightUnit } = extractDimensionNumberAndUnit(rHeightStr));
+  } else if (rViewBox) {
+    [, , rWidth, rHeight] = rViewBox.split(" ").map((s) => parseInt(s, 10));
+  }
+  if (rWidthUnit !== rHeightUnit) {
+    return {
+      width: lWidthStr || rWidthStr || "",
+      height: lHeightStr || rHeightStr || ""
+    };
+  }
+  if (lWidthStr) {
+    const { number, unit } = extractDimensionNumberAndUnit(lWidthStr);
+    const cDimension = calculateNewDimensions(
+      { width: rWidth, height: rHeight },
+      { width: number }
+    );
+    const cUnit = unit || rWidthUnit;
+    return {
+      width: cDimension.width.toFixed(2) + cUnit,
+      height: cDimension.height.toFixed(2) + cUnit
+    };
+  }
+  if (lHeightStr) {
+    const { number, unit } = extractDimensionNumberAndUnit(lHeightStr);
+    const cDimension = calculateNewDimensions(
+      { width: rWidth, height: rHeight },
+      { height: number }
+    );
+    const cUnit = unit || rHeightUnit;
+    return {
+      width: cDimension.width.toFixed(2) + cUnit,
+      height: cDimension.height.toFixed(2) + cUnit
+    };
+  }
+  return {
+    width: rWidth + rWidthUnit,
+    height: rHeight + rHeightUnit
+  };
+}
+function inlineSvg(node, param) {
+  let config = resolveConfig(param);
+  async function op() {
+    if (config.src) {
+      const response = await fetch(config.src, { cache: config.cache });
+      const str = config.transform(await response.text());
+      const svg = new DOMParser().parseFromString(str, "image/svg+xml").documentElement;
+      for (let i = 0; i < svg.attributes.length; i++) {
+        const attr2 = svg.attributes[i];
+        if (!node.hasAttribute(attr2.name) && !["width", "height"].includes(attr2.name)) {
+          node.setAttribute(attr2.name, attr2.value);
+        }
+      }
+      if (config.autoDimensions) {
+        const dimensions = calculateDimensions(node, svg);
+        node.setAttribute("width", dimensions.width);
+        node.setAttribute("height", dimensions.height);
+      } else {
+        node.setAttribute("width", node.getAttribute("width") || "");
+        node.setAttribute("height", node.getAttribute("height") || "");
+      }
+      node.innerHTML = svg.innerHTML;
+    }
+  }
+  op();
+  return {
+    update(update2) {
+      config = resolveConfig(update2);
+      op();
+    }
+  };
+}
+const DEFAULT_INLINE_SVG_ACTION_CONFIG = {
+  src: "",
+  cache: "no-cache",
+  autoDimensions: true,
+  transform: (svg) => svg
+};
+function resolveConfig(param = "") {
+  if (typeof param === "string") {
+    return {
+      ...DEFAULT_INLINE_SVG_ACTION_CONFIG,
+      src: param
+    };
+  }
+  return {
+    ...DEFAULT_INLINE_SVG_ACTION_CONFIG,
+    ...param
+  };
+}
+function popoverTooltip(node, { cssClass, direction, isHTML, locked, tooltip }) {
+  function setAttributes() {
+    if (typeof tooltip === "string") {
+      if (isHTML) {
+        node.setAttribute("data-tooltip-html", tooltip);
+        node.removeAttribute("data-tooltip");
+      } else {
+        node.setAttribute("data-tooltip", tooltip);
+        node.removeAttribute("data-tooltip-html");
+      }
+    } else {
+      node.removeAttribute("data-tooltip");
+      node.removeAttribute("data-tooltip-html");
+    }
+    if (typeof cssClass === "string") {
+      node.setAttribute("data-tooltip-class", cssClass);
+    } else {
+      node.removeAttribute("data-tooltip-class");
+    }
+    if (typeof direction === "string") {
+      node.setAttribute("data-tooltip-direction", direction);
+    } else {
+      node.removeAttribute("data-tooltip-direction");
+    }
+    if (typeof locked === "boolean" && locked) {
+      node.setAttribute("data-locked", String(locked));
+    } else {
+      node.removeAttribute("data-locked");
+    }
+    if (node === globalThis?.game?.tooltip?.element) {
+      globalThis?.game?.tooltip?.activate(node);
+    }
+  }
+  setAttributes();
+  return {
+    /**
+     * @param {TooltipOptions}  options - Update tooltip.
+     */
+    update: (options) => {
+      cssClass = typeof options?.cssClass === "string" ? options.cssClass : void 0;
+      direction = typeof options?.direction === "string" ? options.direction : void 0;
+      isHTML = typeof options?.isHTML === "boolean" ? options.isHTML : void 0;
+      locked = typeof options?.locked === "boolean" ? options.locked : void 0;
+      tooltip = typeof options?.tooltip === "string" ? options.tooltip : void 0;
+      setAttributes();
+    }
+  };
+}
+function create_if_block$2(ctx) {
+  let if_block_anchor;
+  function select_block_type(ctx2, dirty) {
+    if (
+      /*iconType*/
+      ctx2[3] === "font"
+    ) return create_if_block_1$1;
+    if (
+      /*iconType*/
+      ctx2[3] === "img"
+    ) return create_if_block_2$1;
+    if (
+      /*iconType*/
+      ctx2[3] === "svg"
+    ) return create_if_block_3;
+  }
+  let current_block_type = select_block_type(ctx);
+  let if_block = current_block_type && current_block_type(ctx);
+  return {
+    c() {
+      if (if_block) if_block.c();
+      if_block_anchor = empty();
+    },
+    m(target, anchor) {
+      if (if_block) if_block.m(target, anchor);
+      insert(target, if_block_anchor, anchor);
+    },
+    p(ctx2, dirty) {
+      if (current_block_type === (current_block_type = select_block_type(ctx2)) && if_block) {
+        if_block.p(ctx2, dirty);
+      } else {
+        if (if_block) if_block.d(1);
+        if_block = current_block_type && current_block_type(ctx2);
+        if (if_block) {
+          if_block.c();
+          if_block.m(if_block_anchor.parentNode, if_block_anchor);
+        }
+      }
+    },
+    d(detaching) {
+      if (detaching) {
+        detach(if_block_anchor);
+      }
+      if (if_block) {
+        if_block.d(detaching);
+      }
+    }
+  };
+}
+function create_if_block_3(ctx) {
+  let svg;
+  let inlineSvg_action;
   let mounted;
   let dispose;
   return {
     c() {
+      svg = svg_element("svg");
+      attr(svg, "class", "icon-int svelte-guag71");
+    },
+    m(target, anchor) {
+      insert(target, svg, anchor);
+      if (!mounted) {
+        dispose = action_destroyer(inlineSvg_action = inlineSvg.call(null, svg, { src: (
+          /*icon*/
+          ctx[2]
+        ) }));
+        mounted = true;
+      }
+    },
+    p(ctx2, dirty) {
+      if (inlineSvg_action && is_function(inlineSvg_action.update) && dirty & /*icon*/
+      4) inlineSvg_action.update.call(null, { src: (
+        /*icon*/
+        ctx2[2]
+      ) });
+    },
+    d(detaching) {
+      if (detaching) {
+        detach(svg);
+      }
+      mounted = false;
+      dispose();
+    }
+  };
+}
+function create_if_block_2$1(ctx) {
+  let img;
+  let img_src_value;
+  return {
+    c() {
+      img = element("img");
+      if (!src_url_equal(img.src, img_src_value = /*icon*/
+      ctx[2])) attr(img, "src", img_src_value);
+      attr(img, "alt", "");
+      attr(img, "class", "icon-int svelte-guag71");
+    },
+    m(target, anchor) {
+      insert(target, img, anchor);
+    },
+    p(ctx2, dirty) {
+      if (dirty & /*icon*/
+      4 && !src_url_equal(img.src, img_src_value = /*icon*/
+      ctx2[2])) {
+        attr(img, "src", img_src_value);
+      }
+    },
+    d(detaching) {
+      if (detaching) {
+        detach(img);
+      }
+    }
+  };
+}
+function create_if_block_1$1(ctx) {
+  let i;
+  let i_class_value;
+  return {
+    c() {
+      i = element("i");
+      attr(i, "class", i_class_value = null_to_empty(
+        /*icon*/
+        ctx[2]
+      ) + " svelte-guag71");
+    },
+    m(target, anchor) {
+      insert(target, i, anchor);
+    },
+    p(ctx2, dirty) {
+      if (dirty & /*icon*/
+      4 && i_class_value !== (i_class_value = null_to_empty(
+        /*icon*/
+        ctx2[2]
+      ) + " svelte-guag71")) {
+        attr(i, "class", i_class_value);
+      }
+    },
+    d(detaching) {
+      if (detaching) {
+        detach(i);
+      }
+    }
+  };
+}
+function create_fragment$5(ctx) {
+  let button_1;
+  let button_1_class_value;
+  let applyStyles_action;
+  let popoverTooltip_action;
+  let mounted;
+  let dispose;
+  let if_block = (
+    /*icon*/
+    ctx[2] && create_if_block$2(ctx)
+  );
+  return {
+    c() {
       button_1 = element("button");
+      if (if_block) if_block.c();
       attr(button_1, "type", "button");
-      attr(button_1, "class", button_1_class_value = "header-control icon " + /*icon*/
-      ctx[5] + " " + /*button*/
-      ctx[0].class);
-      attr(button_1, "data-action", button_1_data_action_value = /*button*/
-      ctx[0].class);
-      attr(button_1, "data-tooltip", button_1_data_tooltip_value = /*$storeHeaderButtonNoLabel*/
-      ctx[6] ? null : (
-        /*label*/
-        ctx[4]
-      ));
-      attr(
-        button_1,
-        "aria-label",
-        /*label*/
-        ctx[4]
-      );
+      attr(button_1, "class", button_1_class_value = "header-control icon" + (typeof /*button*/
+      ctx[0].class === "string" ? ` ${/*button*/
+      ctx[0].class}` : "") + " svelte-guag71");
       toggle_class(
         button_1,
         "keep-minimized",
         /*keepMinimized*/
-        ctx[3]
+        ctx[5]
       );
     },
     m(target, anchor) {
       insert(target, button_1, anchor);
+      if (if_block) if_block.m(button_1, null);
       if (!mounted) {
         dispose = [
           listen(button_1, "click", stop_propagation(prevent_default(
             /*onClick*/
-            ctx[7]
+            ctx[9]
           ))),
           listen(button_1, "contextmenu", stop_propagation(prevent_default(
             /*onContextMenu*/
-            ctx[8]
+            ctx[10]
           ))),
           listen(
             button_1,
             "keydown",
             /*onKeydown*/
-            ctx[9]
+            ctx[11]
           ),
           listen(
             button_1,
             "keyup",
             /*onKeyup*/
-            ctx[10]
+            ctx[12]
           ),
           action_destroyer(applyStyles_action = applyStyles.call(
             null,
             button_1,
             /*styles*/
-            ctx[2]
-          ))
+            ctx[4]
+          )),
+          action_destroyer(popoverTooltip_action = popoverTooltip.call(null, button_1, {
+            ariaLabel: true,
+            tooltip: (
+              /*$storeHeaderButtonNoLabel*/
+              ctx[8] ? void 0 : (
+                /*label*/
+                ctx[7]
+              )
+            ),
+            direction: (
+              /*tooltipDirection*/
+              ctx[6]
+            )
+          }))
         ];
         mounted = true;
       }
     },
     p(ctx2, [dirty]) {
-      if (dirty & /*icon, button*/
-      33 && button_1_class_value !== (button_1_class_value = "header-control icon " + /*icon*/
-      ctx2[5] + " " + /*button*/
-      ctx2[0].class)) {
-        attr(button_1, "class", button_1_class_value);
+      if (
+        /*icon*/
+        ctx2[2]
+      ) {
+        if (if_block) {
+          if_block.p(ctx2, dirty);
+        } else {
+          if_block = create_if_block$2(ctx2);
+          if_block.c();
+          if_block.m(button_1, null);
+        }
+      } else if (if_block) {
+        if_block.d(1);
+        if_block = null;
       }
       if (dirty & /*button*/
-      1 && button_1_data_action_value !== (button_1_data_action_value = /*button*/
-      ctx2[0].class)) {
-        attr(button_1, "data-action", button_1_data_action_value);
-      }
-      if (dirty & /*$storeHeaderButtonNoLabel, label*/
-      80 && button_1_data_tooltip_value !== (button_1_data_tooltip_value = /*$storeHeaderButtonNoLabel*/
-      ctx2[6] ? null : (
-        /*label*/
-        ctx2[4]
-      ))) {
-        attr(button_1, "data-tooltip", button_1_data_tooltip_value);
-      }
-      if (dirty & /*label*/
-      16) {
-        attr(
-          button_1,
-          "aria-label",
-          /*label*/
-          ctx2[4]
-        );
+      1 && button_1_class_value !== (button_1_class_value = "header-control icon" + (typeof /*button*/
+      ctx2[0].class === "string" ? ` ${/*button*/
+      ctx2[0].class}` : "") + " svelte-guag71")) {
+        attr(button_1, "class", button_1_class_value);
       }
       if (applyStyles_action && is_function(applyStyles_action.update) && dirty & /*styles*/
-      4) applyStyles_action.update.call(
+      16) applyStyles_action.update.call(
         null,
         /*styles*/
-        ctx2[2]
+        ctx2[4]
       );
-      if (dirty & /*icon, button, keepMinimized*/
-      41) {
+      if (popoverTooltip_action && is_function(popoverTooltip_action.update) && dirty & /*$storeHeaderButtonNoLabel, label, tooltipDirection*/
+      448) popoverTooltip_action.update.call(null, {
+        ariaLabel: true,
+        tooltip: (
+          /*$storeHeaderButtonNoLabel*/
+          ctx2[8] ? void 0 : (
+            /*label*/
+            ctx2[7]
+          )
+        ),
+        direction: (
+          /*tooltipDirection*/
+          ctx2[6]
+        )
+      });
+      if (dirty & /*button, keepMinimized*/
+      33) {
         toggle_class(
           button_1,
           "keep-minimized",
           /*keepMinimized*/
-          ctx2[3]
+          ctx2[5]
         );
       }
     },
@@ -14012,6 +17302,7 @@ function create_fragment$5(ctx) {
       if (detaching) {
         detach(button_1);
       }
+      if (if_block) if_block.d();
       mounted = false;
       run_all(dispose);
     }
@@ -14020,14 +17311,16 @@ function create_fragment$5(ctx) {
 function instance$5($$self, $$props, $$invalidate) {
   let icon;
   let label;
+  let tooltipDirection;
   let keepMinimized;
   let keyCode;
   let styles;
-  let $storeHeaderButtonNoLabel, $$unsubscribe_storeHeaderButtonNoLabel = noop, $$subscribe_storeHeaderButtonNoLabel = () => ($$unsubscribe_storeHeaderButtonNoLabel(), $$unsubscribe_storeHeaderButtonNoLabel = subscribe(storeHeaderButtonNoLabel, ($$value) => $$invalidate(6, $storeHeaderButtonNoLabel = $$value)), storeHeaderButtonNoLabel);
+  let $storeHeaderButtonNoLabel, $$unsubscribe_storeHeaderButtonNoLabel = noop, $$subscribe_storeHeaderButtonNoLabel = () => ($$unsubscribe_storeHeaderButtonNoLabel(), $$unsubscribe_storeHeaderButtonNoLabel = subscribe(storeHeaderButtonNoLabel, ($$value) => $$invalidate(8, $storeHeaderButtonNoLabel = $$value)), storeHeaderButtonNoLabel);
   $$self.$$.on_destroy.push(() => $$unsubscribe_storeHeaderButtonNoLabel());
   let { button = void 0 } = $$props;
   let { storeHeaderButtonNoLabel = void 0 } = $$props;
   $$subscribe_storeHeaderButtonNoLabel();
+  let iconType;
   function onClick(event) {
     const invoke = button?.onPress ?? button?.onclick;
     if (typeof invoke === "function") {
@@ -14065,15 +17358,19 @@ function instance$5($$self, $$props, $$invalidate) {
   $$self.$$.update = () => {
     if ($$self.$$.dirty & /*button*/
     1) {
-      $$invalidate(5, icon = isObject(button) && typeof button.icon === "string" ? button.icon : void 0);
+      $$invalidate(2, icon = isObject(button) && typeof button.icon === "string" ? button.icon : void 0);
     }
     if ($$self.$$.dirty & /*button*/
     1) {
-      $$invalidate(4, label = isObject(button) && typeof button.label === "string" ? localize(button.label) : void 0);
+      $$invalidate(7, label = isObject(button) && typeof button.label === "string" ? localize(button.label) : void 0);
     }
     if ($$self.$$.dirty & /*button*/
     1) {
-      $$invalidate(3, keepMinimized = isObject(button) && typeof button.keepMinimized === "boolean" ? button.keepMinimized : false);
+      $$invalidate(6, tooltipDirection = isObject(button) && typeof button.tooltipDirection === "string" ? button.tooltipDirection : void 0);
+    }
+    if ($$self.$$.dirty & /*button*/
+    1) {
+      $$invalidate(5, keepMinimized = isObject(button) && typeof button.keepMinimized === "boolean" ? button.keepMinimized : false);
     }
     if ($$self.$$.dirty & /*button*/
     1) {
@@ -14081,16 +17378,28 @@ function instance$5($$self, $$props, $$invalidate) {
     }
     if ($$self.$$.dirty & /*button*/
     1) {
-      $$invalidate(2, styles = isObject(button) && isObject(button.styles) ? button.styles : void 0);
+      $$invalidate(4, styles = isObject(button) && isObject(button.styles) ? button.styles : void 0);
+    }
+    if ($$self.$$.dirty & /*icon*/
+    4) {
+      {
+        const result = AssetValidator.parseMedia({
+          url: icon,
+          mediaTypes: AssetValidator.MediaTypes.img_svg
+        });
+        $$invalidate(3, iconType = result.valid ? result.elementType : "font");
+      }
     }
   };
   return [
     button,
     storeHeaderButtonNoLabel,
+    icon,
+    iconType,
     styles,
     keepMinimized,
+    tooltipDirection,
     label,
-    icon,
     $storeHeaderButtonNoLabel,
     onClick,
     onContextMenu,
@@ -14101,7 +17410,7 @@ function instance$5($$self, $$props, $$invalidate) {
 class TJSHeaderButton extends SvelteComponent {
   constructor(options) {
     super();
-    init(this, options, instance$5, create_fragment$5, safe_not_equal, { button: 0, storeHeaderButtonNoLabel: 1 });
+    init$1(this, options, instance$5, create_fragment$5, safe_not_equal, { button: 0, storeHeaderButtonNoLabel: 1 });
   }
   get button() {
     return this.$$.ctx[0];
@@ -14120,13 +17429,49 @@ class TJSHeaderButton extends SvelteComponent {
 }
 function get_each_context(ctx, list, i) {
   const child_ctx = ctx.slice();
-  child_ctx[34] = list[i];
+  child_ctx[40] = list[i];
   return child_ctx;
 }
 function get_each_context_1(ctx, list, i) {
   const child_ctx = ctx.slice();
-  child_ctx[34] = list[i];
+  child_ctx[40] = list[i];
   return child_ctx;
+}
+function create_if_block_2(ctx) {
+  let svg;
+  let inlineSvg_action;
+  let mounted;
+  let dispose;
+  return {
+    c() {
+      svg = svg_element("svg");
+      attr(svg, "class", "tjs-app-icon keep-minimized svelte-1n4tpql");
+    },
+    m(target, anchor) {
+      insert(target, svg, anchor);
+      if (!mounted) {
+        dispose = action_destroyer(inlineSvg_action = inlineSvg.call(null, svg, { src: (
+          /*$storeHeaderIcon*/
+          ctx[4]
+        ) }));
+        mounted = true;
+      }
+    },
+    p(ctx2, dirty) {
+      if (inlineSvg_action && is_function(inlineSvg_action.update) && dirty[0] & /*$storeHeaderIcon*/
+      16) inlineSvg_action.update.call(null, { src: (
+        /*$storeHeaderIcon*/
+        ctx2[4]
+      ) });
+    },
+    d(detaching) {
+      if (detaching) {
+        detach(svg);
+      }
+      mounted = false;
+      dispose();
+    }
+  };
 }
 function create_if_block_1(ctx) {
   let i;
@@ -14135,15 +17480,15 @@ function create_if_block_1(ctx) {
     c() {
       i = element("i");
       attr(i, "class", i_class_value = "window-icon keep-minimized " + /*$storeHeaderIcon*/
-      ctx[3] + " svelte-1nljvaj");
+      ctx[4] + " svelte-1n4tpql");
     },
     m(target, anchor) {
       insert(target, i, anchor);
     },
     p(ctx2, dirty) {
       if (dirty[0] & /*$storeHeaderIcon*/
-      8 && i_class_value !== (i_class_value = "window-icon keep-minimized " + /*$storeHeaderIcon*/
-      ctx2[3] + " svelte-1nljvaj")) {
+      16 && i_class_value !== (i_class_value = "window-icon keep-minimized " + /*$storeHeaderIcon*/
+      ctx2[4] + " svelte-1n4tpql")) {
         attr(i, "class", i_class_value);
       }
     },
@@ -14160,10 +17505,10 @@ function create_if_block$1(ctx) {
   return {
     c() {
       img = element("img");
-      attr(img, "class", "tjs-app-icon keep-minimized svelte-1nljvaj");
-      if (!src_url_equal(img.src, img_src_value = globalThis.foundry.utils.getRoute(
+      attr(img, "class", "tjs-app-icon keep-minimized svelte-1n4tpql");
+      if (!src_url_equal(img.src, img_src_value = getRoutePrefix(
         /*$storeHeaderIcon*/
-        ctx[3]
+        ctx[4]
       ))) attr(img, "src", img_src_value);
       attr(img, "alt", "icon");
     },
@@ -14172,9 +17517,9 @@ function create_if_block$1(ctx) {
     },
     p(ctx2, dirty) {
       if (dirty[0] & /*$storeHeaderIcon*/
-      8 && !src_url_equal(img.src, img_src_value = globalThis.foundry.utils.getRoute(
+      16 && !src_url_equal(img.src, img_src_value = getRoutePrefix(
         /*$storeHeaderIcon*/
-        ctx2[3]
+        ctx2[4]
       ))) {
         attr(img, "src", img_src_value);
       }
@@ -14192,11 +17537,11 @@ function create_each_block_1(ctx) {
   let current;
   const switch_instance_spread_levels = [
     /*button*/
-    ctx[34].props
+    ctx[40].props
   ];
   var switch_value = (
     /*button*/
-    ctx[34].class
+    ctx[40].class
   );
   function switch_props(ctx2, dirty) {
     let switch_instance_props = {};
@@ -14204,10 +17549,10 @@ function create_each_block_1(ctx) {
       switch_instance_props = assign(switch_instance_props, switch_instance_spread_levels[i]);
     }
     if (dirty !== void 0 && dirty[0] & /*buttonsLeft*/
-    2) {
+    4) {
       switch_instance_props = assign(switch_instance_props, get_spread_update(switch_instance_spread_levels, [get_spread_object(
         /*button*/
-        ctx2[34].props
+        ctx2[40].props
       )]));
     }
     return { props: switch_instance_props };
@@ -14227,8 +17572,8 @@ function create_each_block_1(ctx) {
     },
     p(ctx2, dirty) {
       if (dirty[0] & /*buttonsLeft*/
-      2 && switch_value !== (switch_value = /*button*/
-      ctx2[34].class)) {
+      4 && switch_value !== (switch_value = /*button*/
+      ctx2[40].class)) {
         if (switch_instance) {
           group_outros();
           const old_component = switch_instance;
@@ -14247,9 +17592,9 @@ function create_each_block_1(ctx) {
         }
       } else if (switch_value) {
         const switch_instance_changes = dirty[0] & /*buttonsLeft*/
-        2 ? get_spread_update(switch_instance_spread_levels, [get_spread_object(
+        4 ? get_spread_update(switch_instance_spread_levels, [get_spread_object(
           /*button*/
-          ctx2[34].props
+          ctx2[40].props
         )]) : {};
         switch_instance.$set(switch_instance_changes);
       }
@@ -14277,11 +17622,11 @@ function create_each_block(ctx) {
   let current;
   const switch_instance_spread_levels = [
     /*button*/
-    ctx[34].props
+    ctx[40].props
   ];
   var switch_value = (
     /*button*/
-    ctx[34].class
+    ctx[40].class
   );
   function switch_props(ctx2, dirty) {
     let switch_instance_props = {};
@@ -14289,10 +17634,10 @@ function create_each_block(ctx) {
       switch_instance_props = assign(switch_instance_props, switch_instance_spread_levels[i]);
     }
     if (dirty !== void 0 && dirty[0] & /*buttonsRight*/
-    4) {
+    8) {
       switch_instance_props = assign(switch_instance_props, get_spread_update(switch_instance_spread_levels, [get_spread_object(
         /*button*/
-        ctx2[34].props
+        ctx2[40].props
       )]));
     }
     return { props: switch_instance_props };
@@ -14312,8 +17657,8 @@ function create_each_block(ctx) {
     },
     p(ctx2, dirty) {
       if (dirty[0] & /*buttonsRight*/
-      4 && switch_value !== (switch_value = /*button*/
-      ctx2[34].class)) {
+      8 && switch_value !== (switch_value = /*button*/
+      ctx2[40].class)) {
         if (switch_instance) {
           group_outros();
           const old_component = switch_instance;
@@ -14332,9 +17677,9 @@ function create_each_block(ctx) {
         }
       } else if (switch_value) {
         const switch_instance_changes = dirty[0] & /*buttonsRight*/
-        4 ? get_spread_update(switch_instance_spread_levels, [get_spread_object(
+        8 ? get_spread_update(switch_instance_spread_levels, [get_spread_object(
           /*button*/
-          ctx2[34].props
+          ctx2[40].props
         )]) : {};
         switch_instance.$set(switch_instance_changes);
       }
@@ -14359,10 +17704,10 @@ function create_each_block(ctx) {
 function create_key_block(ctx) {
   let header;
   let t0;
-  let h4;
+  let h1;
   let t1_value = localize(
     /*$storeTitle*/
-    ctx[9]
+    ctx[10]
   ) + "";
   let t1;
   let t2;
@@ -14377,18 +17722,22 @@ function create_key_block(ctx) {
   function select_block_type(ctx2, dirty) {
     if (
       /*mediaType*/
-      ctx2[7] === "img"
+      ctx2[8] === "img"
     ) return create_if_block$1;
     if (
       /*mediaType*/
-      ctx2[7] === "font"
+      ctx2[8] === "font"
     ) return create_if_block_1;
+    if (
+      /*mediaType*/
+      ctx2[8] === "svg"
+    ) return create_if_block_2;
   }
   let current_block_type = select_block_type(ctx);
   let if_block = current_block_type && current_block_type(ctx);
   let each_value_1 = ensure_array_like(
     /*buttonsLeft*/
-    ctx[1]
+    ctx[2]
   );
   let each_blocks_1 = [];
   for (let i = 0; i < each_value_1.length; i += 1) {
@@ -14399,7 +17748,7 @@ function create_key_block(ctx) {
   });
   let each_value = ensure_array_like(
     /*buttonsRight*/
-    ctx[2]
+    ctx[3]
   );
   let each_blocks = [];
   for (let i = 0; i < each_value.length; i += 1) {
@@ -14413,7 +17762,7 @@ function create_key_block(ctx) {
       header = element("header");
       if (if_block) if_block.c();
       t0 = space();
-      h4 = element("h4");
+      h1 = element("h1");
       t1 = text(t1_value);
       t2 = space();
       for (let i = 0; i < each_blocks_1.length; i += 1) {
@@ -14425,24 +17774,24 @@ function create_key_block(ctx) {
       for (let i = 0; i < each_blocks.length; i += 1) {
         each_blocks[i].c();
       }
-      attr(h4, "class", "window-title svelte-1nljvaj");
+      attr(h1, "class", "window-title svelte-1n4tpql");
       set_style(
-        h4,
+        h1,
         "display",
         /*displayHeaderTitle*/
-        ctx[6]
+        ctx[7]
       );
-      attr(span, "class", "tjs-window-header-spacer keep-minimized svelte-1nljvaj");
-      attr(header, "class", "window-header flexrow svelte-1nljvaj");
+      attr(span, "class", "tjs-window-header-spacer keep-minimized svelte-1n4tpql");
+      attr(header, "class", "window-header svelte-1n4tpql");
       toggle_class(header, "not-draggable", !/*$storeDraggable*/
-      ctx[4]);
+      ctx[5]);
     },
     m(target, anchor) {
       insert(target, header, anchor);
       if (if_block) if_block.m(header, null);
       append(header, t0);
-      append(header, h4);
-      append(h4, t1);
+      append(header, h1);
+      append(h1, t1);
       append(header, t2);
       for (let i = 0; i < each_blocks_1.length; i += 1) {
         if (each_blocks_1[i]) {
@@ -14457,6 +17806,7 @@ function create_key_block(ctx) {
           each_blocks[i].m(header, null);
         }
       }
+      ctx[31](header);
       current = true;
       if (!mounted) {
         dispose = [
@@ -14464,21 +17814,21 @@ function create_key_block(ctx) {
             header,
             "pointerdown",
             /*onPointerdown*/
-            ctx[21]
+            ctx[24]
           ),
           action_destroyer(draggable_action = /*draggable*/
           ctx[0].call(
             null,
             header,
             /*dragOptions*/
-            ctx[5]
+            ctx[6]
           )),
           action_destroyer(minimizable_action = /*minimizable*/
-          ctx[20].call(
+          ctx[23].call(
             null,
             header,
             /*$storeMinimizable*/
-            ctx[8]
+            ctx[9]
           ))
         ];
         mounted = true;
@@ -14496,24 +17846,24 @@ function create_key_block(ctx) {
         }
       }
       if ((!current || dirty[0] & /*$storeTitle*/
-      512) && t1_value !== (t1_value = localize(
+      1024) && t1_value !== (t1_value = localize(
         /*$storeTitle*/
-        ctx2[9]
+        ctx2[10]
       ) + "")) set_data(t1, t1_value);
       if (dirty[0] & /*displayHeaderTitle*/
-      64) {
+      128) {
         set_style(
-          h4,
+          h1,
           "display",
           /*displayHeaderTitle*/
-          ctx2[6]
+          ctx2[7]
         );
       }
       if (dirty[0] & /*buttonsLeft*/
-      2) {
+      4) {
         each_value_1 = ensure_array_like(
           /*buttonsLeft*/
-          ctx2[1]
+          ctx2[2]
         );
         let i;
         for (i = 0; i < each_value_1.length; i += 1) {
@@ -14535,10 +17885,10 @@ function create_key_block(ctx) {
         check_outros();
       }
       if (dirty[0] & /*buttonsRight*/
-      4) {
+      8) {
         each_value = ensure_array_like(
           /*buttonsRight*/
-          ctx2[2]
+          ctx2[3]
         );
         let i;
         for (i = 0; i < each_value.length; i += 1) {
@@ -14560,21 +17910,21 @@ function create_key_block(ctx) {
         check_outros();
       }
       if (draggable_action && is_function(draggable_action.update) && dirty[0] & /*dragOptions*/
-      32) draggable_action.update.call(
+      64) draggable_action.update.call(
         null,
         /*dragOptions*/
-        ctx2[5]
+        ctx2[6]
       );
       if (minimizable_action && is_function(minimizable_action.update) && dirty[0] & /*$storeMinimizable*/
-      256) minimizable_action.update.call(
+      512) minimizable_action.update.call(
         null,
         /*$storeMinimizable*/
-        ctx2[8]
+        ctx2[9]
       );
       if (!current || dirty[0] & /*$storeDraggable*/
-      16) {
+      32) {
         toggle_class(header, "not-draggable", !/*$storeDraggable*/
-        ctx2[4]);
+        ctx2[5]);
       }
     },
     i(local) {
@@ -14607,6 +17957,7 @@ function create_key_block(ctx) {
       }
       destroy_each(each_blocks_1, detaching);
       destroy_each(each_blocks, detaching);
+      ctx[31](null);
       mounted = false;
       run_all(dispose);
     }
@@ -14671,39 +18022,52 @@ function instance$4($$self, $$props, $$invalidate) {
   let $storeMinimized;
   let $storeHeaderNoTitleMinimized;
   let $storeDraggable;
+  let $storeDetached;
+  let $storeAlwaysOnTop;
   let $storeMinimizable;
   let $storeTitle;
   let { draggable: draggable$1 = void 0 } = $$props;
   let { draggableOptions = void 0 } = $$props;
   const application = getContext("#external")?.application;
   const { focusAuto, focusKeep } = application.reactive.storeAppOptions;
-  component_subscribe($$self, focusAuto, (value) => $$invalidate(27, $focusAuto = value));
-  component_subscribe($$self, focusKeep, (value) => $$invalidate(26, $focusKeep = value));
+  component_subscribe($$self, focusAuto, (value) => $$invalidate(33, $focusAuto = value));
+  component_subscribe($$self, focusKeep, (value) => $$invalidate(32, $focusKeep = value));
   const { elementRoot } = getContext("#internal").stores;
-  component_subscribe($$self, elementRoot, (value) => $$invalidate(28, $elementRoot = value));
-  const storeTitle = application.reactive.storeAppOptions.title;
-  component_subscribe($$self, storeTitle, (value) => $$invalidate(9, $storeTitle = value));
+  component_subscribe($$self, elementRoot, (value) => $$invalidate(34, $elementRoot = value));
+  const storeAlwaysOnTop = application.reactive.storeAppOptions.alwaysOnTop;
+  component_subscribe($$self, storeAlwaysOnTop, (value) => $$invalidate(30, $storeAlwaysOnTop = value));
   const storeDraggable = application.reactive.storeAppOptions.draggable;
-  component_subscribe($$self, storeDraggable, (value) => $$invalidate(4, $storeDraggable = value));
+  component_subscribe($$self, storeDraggable, (value) => $$invalidate(5, $storeDraggable = value));
+  const storeDetached = application.reactive.storeUIState.detached;
+  component_subscribe($$self, storeDetached, (value) => $$invalidate(29, $storeDetached = value));
   const storeDragging = application.reactive.storeUIState.dragging;
   const storeHeaderButtons = application.reactive.storeUIState.headerButtons;
-  component_subscribe($$self, storeHeaderButtons, (value) => $$invalidate(23, $storeHeaderButtons = value));
+  component_subscribe($$self, storeHeaderButtons, (value) => $$invalidate(26, $storeHeaderButtons = value));
   const storeHeaderButtonNoLabel = application.reactive.storeAppOptions.headerButtonNoLabel;
   const storeHeaderIcon = application.reactive.storeAppOptions.headerIcon;
-  component_subscribe($$self, storeHeaderIcon, (value) => $$invalidate(3, $storeHeaderIcon = value));
+  component_subscribe($$self, storeHeaderIcon, (value) => $$invalidate(4, $storeHeaderIcon = value));
   const storeHeaderNoTitleMinimized = application.reactive.storeAppOptions.headerNoTitleMinimized;
-  component_subscribe($$self, storeHeaderNoTitleMinimized, (value) => $$invalidate(25, $storeHeaderNoTitleMinimized = value));
+  component_subscribe($$self, storeHeaderNoTitleMinimized, (value) => $$invalidate(28, $storeHeaderNoTitleMinimized = value));
   const storeMinimizable = application.reactive.storeAppOptions.minimizable;
-  component_subscribe($$self, storeMinimizable, (value) => $$invalidate(8, $storeMinimizable = value));
+  component_subscribe($$self, storeMinimizable, (value) => $$invalidate(9, $storeMinimizable = value));
   const storeMinimized = application.reactive.storeUIState.minimized;
-  component_subscribe($$self, storeMinimized, (value) => $$invalidate(24, $storeMinimized = value));
+  component_subscribe($$self, storeMinimized, (value) => $$invalidate(27, $storeMinimized = value));
+  const storeTitle = application.reactive.storeAppOptions.title;
+  component_subscribe($$self, storeTitle, (value) => $$invalidate(10, $storeTitle = value));
   const s_DRAG_TARGET_CLASSLIST = Object.freeze(["tjs-app-icon", "tjs-window-header-spacer", "window-header", "window-title"]);
+  let headerEl;
+  function checkAlwaysOnTop(hide) {
+    if (hide) {
+      headerEl?.querySelector(".popout-module-button")?.setAttribute("hidden", "");
+    } else {
+      headerEl?.querySelector(".popout-module-button")?.removeAttribute("hidden");
+    }
+  }
   let dragOptions;
   let displayHeaderTitle;
   let buttonsLeft;
   let buttonsRight;
   let mediaType = void 0;
-  const validExt = /* @__PURE__ */ new Set(["jpg", "jpeg", "png", "webp"]);
   function minimizable(node, booleanStore) {
     const callback = (event) => {
       if (event.target.classList.contains("window-title") || event.target.classList.contains("window-header") || event.target.classList.contains("keep-minimized")) {
@@ -14747,18 +18111,30 @@ function instance$4($$self, $$props, $$invalidate) {
       }
     }
   }
+  function header_binding($$value) {
+    binding_callbacks[$$value ? "unshift" : "push"](() => {
+      headerEl = $$value;
+      $$invalidate(1, headerEl);
+    });
+  }
   $$self.$$set = ($$props2) => {
     if ("draggable" in $$props2) $$invalidate(0, draggable$1 = $$props2.draggable);
-    if ("draggableOptions" in $$props2) $$invalidate(22, draggableOptions = $$props2.draggableOptions);
+    if ("draggableOptions" in $$props2) $$invalidate(25, draggableOptions = $$props2.draggableOptions);
   };
   $$self.$$.update = () => {
+    if ($$self.$$.dirty[0] & /*headerEl, $storeAlwaysOnTop, $storeDetached*/
+    1610612738) {
+      if (headerEl) {
+        checkAlwaysOnTop($storeAlwaysOnTop && !$storeDetached);
+      }
+    }
     if ($$self.$$.dirty[0] & /*draggable*/
     1) {
       $$invalidate(0, draggable$1 = typeof draggable$1 === "function" ? draggable$1 : draggable);
     }
     if ($$self.$$.dirty[0] & /*draggableOptions, $storeDraggable*/
-    4194320) {
-      $$invalidate(5, dragOptions = Object.assign(
+    33554464) {
+      $$invalidate(6, dragOptions = Object.assign(
         {},
         {
           tween: true,
@@ -14774,14 +18150,14 @@ function instance$4($$self, $$props, $$invalidate) {
       ));
     }
     if ($$self.$$.dirty[0] & /*$storeHeaderNoTitleMinimized, $storeMinimized*/
-    50331648) {
-      $$invalidate(6, displayHeaderTitle = $storeHeaderNoTitleMinimized && $storeMinimized ? "none" : null);
+    402653184) {
+      $$invalidate(7, displayHeaderTitle = $storeHeaderNoTitleMinimized && $storeMinimized ? "none" : null);
     }
     if ($$self.$$.dirty[0] & /*$storeHeaderButtons, buttonsLeft, buttonsRight*/
-    8388614) {
+    67108876) {
       {
-        $$invalidate(1, buttonsLeft = []);
-        $$invalidate(2, buttonsRight = []);
+        $$invalidate(2, buttonsLeft = []);
+        $$invalidate(3, buttonsRight = []);
         for (const button of $storeHeaderButtons) {
           const buttonsList = typeof button?.alignLeft === "boolean" && button?.alignLeft ? buttonsLeft : buttonsRight;
           buttonsList.push(TJSSvelte.config.isConfigEmbed(button?.svelte) ? { ...button.svelte } : {
@@ -14792,18 +18168,21 @@ function instance$4($$self, $$props, $$invalidate) {
       }
     }
     if ($$self.$$.dirty[0] & /*$storeHeaderIcon*/
-    8) {
+    16) {
       if (typeof $storeHeaderIcon === "string") {
-        const extensionMatch = $storeHeaderIcon.match(/\.([a-z]+)$/);
-        const extension = extensionMatch ? extensionMatch[1].toLowerCase() : null;
-        $$invalidate(7, mediaType = validExt.has(extension) ? "img" : "font");
+        const result = AssetValidator.parseMedia({
+          url: $storeHeaderIcon,
+          mediaTypes: AssetValidator.MediaTypes.img_svg
+        });
+        $$invalidate(8, mediaType = result.valid ? result.elementType : "font");
       } else {
-        $$invalidate(7, mediaType = void 0);
+        $$invalidate(8, mediaType = void 0);
       }
     }
   };
   return [
     draggable$1,
+    headerEl,
     buttonsLeft,
     buttonsRight,
     $storeHeaderIcon,
@@ -14816,25 +18195,30 @@ function instance$4($$self, $$props, $$invalidate) {
     focusAuto,
     focusKeep,
     elementRoot,
-    storeTitle,
+    storeAlwaysOnTop,
     storeDraggable,
+    storeDetached,
     storeHeaderButtons,
     storeHeaderIcon,
     storeHeaderNoTitleMinimized,
     storeMinimizable,
     storeMinimized,
+    storeTitle,
     minimizable,
     onPointerdown,
     draggableOptions,
     $storeHeaderButtons,
     $storeMinimized,
-    $storeHeaderNoTitleMinimized
+    $storeHeaderNoTitleMinimized,
+    $storeDetached,
+    $storeAlwaysOnTop,
+    header_binding
   ];
 }
 class TJSApplicationHeader extends SvelteComponent {
   constructor(options) {
     super();
-    init(this, options, instance$4, create_fragment$4, safe_not_equal, { draggable: 0, draggableOptions: 22 }, null, [-1, -1]);
+    init$1(this, options, instance$4, create_fragment$4, safe_not_equal, { draggable: 0, draggableOptions: 25 }, null, [-1, -1]);
   }
 }
 class ResizeHandleTransform {
@@ -14900,28 +18284,29 @@ function create_fragment$3(ctx) {
     c() {
       div = element("div");
       div.innerHTML = ``;
-      attr(div, "class", "window-resize-handle svelte-n0c9z4");
+      attr(div, "class", "window-resize-handle svelte-1kzx9yd");
     },
     m(target, anchor) {
       insert(target, div, anchor);
-      ctx[11](div);
+      ctx[13](div);
       if (!mounted) {
         dispose = [
           listen(
             div,
             "pointerdown",
             /*onPointerdown*/
-            ctx[6]
+            ctx[8]
           ),
           action_destroyer(resizable_action = /*resizable*/
-          ctx[7].call(null, div, {
+          ctx[9].call(null, div, {
             active: (
               /*$storeResizable*/
-              ctx[1]
+              ctx[1] && !/*$storeDetached*/
+              ctx[2]
             ),
             storeResizing: (
               /*storeResizing*/
-              ctx[5]
+              ctx[7]
             )
           }))
         ];
@@ -14929,15 +18314,16 @@ function create_fragment$3(ctx) {
       }
     },
     p(ctx2, [dirty]) {
-      if (resizable_action && is_function(resizable_action.update) && dirty & /*$storeResizable*/
-      2) resizable_action.update.call(null, {
+      if (resizable_action && is_function(resizable_action.update) && dirty & /*$storeResizable, $storeDetached*/
+      6) resizable_action.update.call(null, {
         active: (
           /*$storeResizable*/
-          ctx2[1]
+          ctx2[1] && !/*$storeDetached*/
+          ctx2[2]
         ),
         storeResizing: (
           /*storeResizing*/
-          ctx2[5]
+          ctx2[7]
         )
       });
     },
@@ -14947,7 +18333,7 @@ function create_fragment$3(ctx) {
       if (detaching) {
         detach(div);
       }
-      ctx[11](null);
+      ctx[13](null);
       mounted = false;
       run_all(dispose);
     }
@@ -14957,14 +18343,17 @@ function instance$3($$self, $$props, $$invalidate) {
   let $storeElementRoot;
   let $storeMinimized;
   let $storeResizable;
+  let $storeDetached;
   let { isResizable = false } = $$props;
   const application = getContext("#external")?.application;
   const storeElementRoot = getContext("#internal").stores.elementRoot;
-  component_subscribe($$self, storeElementRoot, (value) => $$invalidate(9, $storeElementRoot = value));
+  component_subscribe($$self, storeElementRoot, (value) => $$invalidate(11, $storeElementRoot = value));
   const storeResizable = application.reactive.storeAppOptions.resizable;
   component_subscribe($$self, storeResizable, (value) => $$invalidate(1, $storeResizable = value));
+  const storeDetached = application.reactive.storeUIState.detached;
+  component_subscribe($$self, storeDetached, (value) => $$invalidate(2, $storeDetached = value));
   const storeMinimized = application.reactive.storeUIState.minimized;
-  component_subscribe($$self, storeMinimized, (value) => $$invalidate(10, $storeMinimized = value));
+  component_subscribe($$self, storeMinimized, (value) => $$invalidate(12, $storeMinimized = value));
   const storeResizing = application.reactive.storeUIState.resizing;
   let elementResize;
   function onPointerdown() {
@@ -14982,7 +18371,7 @@ function instance$3($$self, $$props, $$invalidate) {
     };
     function activateListeners() {
       node.addEventListener(...handlers.resizeDown);
-      $$invalidate(8, isResizable = true);
+      $$invalidate(10, isResizable = true);
       node.style.display = "block";
     }
     function removeListeners() {
@@ -14993,7 +18382,7 @@ function instance$3($$self, $$props, $$invalidate) {
       node.removeEventListener(...handlers.resizeMove);
       node.removeEventListener(...handlers.resizeUp);
       node.style.display = "none";
-      $$invalidate(8, isResizable = false);
+      $$invalidate(10, isResizable = false);
     }
     if (active2) {
       activateListeners();
@@ -15052,15 +18441,15 @@ function instance$3($$self, $$props, $$invalidate) {
   function div_binding($$value) {
     binding_callbacks[$$value ? "unshift" : "push"](() => {
       elementResize = $$value;
-      $$invalidate(0, elementResize), $$invalidate(8, isResizable), $$invalidate(10, $storeMinimized), $$invalidate(9, $storeElementRoot);
+      $$invalidate(0, elementResize), $$invalidate(10, isResizable), $$invalidate(12, $storeMinimized), $$invalidate(11, $storeElementRoot);
     });
   }
   $$self.$$set = ($$props2) => {
-    if ("isResizable" in $$props2) $$invalidate(8, isResizable = $$props2.isResizable);
+    if ("isResizable" in $$props2) $$invalidate(10, isResizable = $$props2.isResizable);
   };
   $$self.$$.update = () => {
     if ($$self.$$.dirty & /*elementResize, isResizable, $storeMinimized, $storeElementRoot*/
-    1793) {
+    7169) {
       if (elementResize) {
         $$invalidate(0, elementResize.style.display = isResizable && !$storeMinimized ? "block" : "none", elementResize);
         const elementRoot = $storeElementRoot;
@@ -15073,8 +18462,10 @@ function instance$3($$self, $$props, $$invalidate) {
   return [
     elementResize,
     $storeResizable,
+    $storeDetached,
     storeElementRoot,
     storeResizable,
+    storeDetached,
     storeMinimized,
     storeResizing,
     onPointerdown,
@@ -15088,7 +18479,7 @@ function instance$3($$self, $$props, $$invalidate) {
 class ResizableHandle extends SvelteComponent {
   constructor(options) {
     super();
-    init(this, options, instance$3, create_fragment$3, safe_not_equal, { isResizable: 8 });
+    init$1(this, options, instance$3, create_fragment$3, safe_not_equal, { isResizable: 10 });
   }
 }
 function create_fragment$2(ctx) {
@@ -15167,7 +18558,7 @@ function instance$2($$self, $$props, $$invalidate) {
 class TJSFocusWrap extends SvelteComponent {
   constructor(options) {
     super();
-    init(this, options, instance$2, create_fragment$2, safe_not_equal, { elementRoot: 2, enabled: 3 });
+    init$1(this, options, instance$2, create_fragment$2, safe_not_equal, { elementRoot: 2, enabled: 3 });
   }
 }
 function create_else_block(ctx) {
@@ -15202,13 +18593,13 @@ function create_else_block(ctx) {
   });
   const default_slot_template = (
     /*#slots*/
-    ctx[40].default
+    ctx[51].default
   );
   const default_slot = create_slot(
     default_slot_template,
     ctx,
     /*$$scope*/
-    ctx[39],
+    ctx[50],
     null
   );
   resizablehandle = new ResizableHandle({});
@@ -15220,7 +18611,7 @@ function create_else_block(ctx) {
       ),
       enabled: (
         /*focusWrapEnabled*/
-        ctx[11]
+        ctx[12]
       )
     }
   });
@@ -15235,16 +18626,30 @@ function create_else_block(ctx) {
       create_component(resizablehandle.$$.fragment);
       t2 = space();
       create_component(tjsfocuswrap.$$.fragment);
-      attr(section, "class", "window-content svelte-c7odu8");
+      attr(section, "class", "window-content svelte-xfthie");
       attr(section, "tabindex", "-1");
       attr(div, "id", div_id_value = /*application*/
       ctx[10].id);
-      attr(div, "class", div_class_value = "application " + /*appClasses*/
-      ctx[12] + " svelte-c7odu8");
+      attr(div, "class", div_class_value = "application tjs-app " + /*appClasses*/
+      ctx[14] + " svelte-xfthie");
       attr(div, "data-appid", div_data_appid_value = /*application*/
       ctx[10].appId);
       attr(div, "role", "application");
       attr(div, "tabindex", "-1");
+      toggle_class(
+        div,
+        "tjs-cq-inline-size",
+        /*cqEnabled*/
+        ctx[13] && /*$containerQueryType*/
+        ctx[11] === "inline-size"
+      );
+      toggle_class(
+        div,
+        "tjs-cq-size",
+        /*cqEnabled*/
+        ctx[13] && /*$containerQueryType*/
+        ctx[11] === "size"
+      );
     },
     m(target, anchor) {
       insert(target, div, anchor);
@@ -15254,12 +18659,12 @@ function create_else_block(ctx) {
       if (default_slot) {
         default_slot.m(section, null);
       }
-      ctx[43](section);
+      ctx[54](section);
       append(div, t1);
       mount_component(resizablehandle, div, null);
       append(div, t2);
       mount_component(tjsfocuswrap, div, null);
-      ctx[44](div);
+      ctx[55](div);
       current = true;
       if (!mounted) {
         dispose = [
@@ -15267,7 +18672,7 @@ function create_else_block(ctx) {
             section,
             "pointerdown",
             /*onPointerdownContent*/
-            ctx[24]
+            ctx[30]
           ),
           action_destroyer(applyStyles_action = applyStyles.call(
             null,
@@ -15277,28 +18682,28 @@ function create_else_block(ctx) {
           )),
           action_destroyer(
             /*contentResizeObserver*/
-            ctx[19].call(
+            ctx[23].call(
               null,
               section,
               /*resizeObservedContent*/
-              ctx[25]
+              ctx[31]
             )
           ),
           listen(div, "close:popup", stop_propagation(prevent_default(
             /*onClosePopup*/
-            ctx[21]
+            ctx[27]
           ))),
           listen(
             div,
             "keydown",
             /*onKeydown*/
-            ctx[22]
+            ctx[28]
           ),
           listen(
             div,
             "pointerdown",
-            /*onPointerdownApp*/
-            ctx[23],
+            /*onPointerdownAppCapture*/
+            ctx[29],
             true
           ),
           action_destroyer(applyStyles_action_1 = applyStyles.call(
@@ -15311,7 +18716,7 @@ function create_else_block(ctx) {
             null,
             div,
             /*appResizeObserver*/
-            ctx[13]
+            ctx[15]
           ))
         ];
         mounted = true;
@@ -15328,20 +18733,20 @@ function create_else_block(ctx) {
       tjsapplicationheader.$set(tjsapplicationheader_changes);
       if (default_slot) {
         if (default_slot.p && (!current || dirty[1] & /*$$scope*/
-        256)) {
+        524288)) {
           update_slot_base(
             default_slot,
             default_slot_template,
             ctx2,
             /*$$scope*/
-            ctx2[39],
+            ctx2[50],
             !current ? get_all_dirty_from_scope(
               /*$$scope*/
-              ctx2[39]
+              ctx2[50]
             ) : get_slot_changes(
               default_slot_template,
               /*$$scope*/
-              ctx2[39],
+              ctx2[50],
               dirty,
               null
             ),
@@ -15360,8 +18765,8 @@ function create_else_block(ctx) {
       2) tjsfocuswrap_changes.elementRoot = /*elementRoot*/
       ctx2[1];
       if (dirty[0] & /*focusWrapEnabled*/
-      2048) tjsfocuswrap_changes.enabled = /*focusWrapEnabled*/
-      ctx2[11];
+      4096) tjsfocuswrap_changes.enabled = /*focusWrapEnabled*/
+      ctx2[12];
       tjsfocuswrap.$set(tjsfocuswrap_changes);
       if (!current || dirty[0] & /*application*/
       1024 && div_id_value !== (div_id_value = /*application*/
@@ -15369,8 +18774,8 @@ function create_else_block(ctx) {
         attr(div, "id", div_id_value);
       }
       if (!current || dirty[0] & /*appClasses*/
-      4096 && div_class_value !== (div_class_value = "application " + /*appClasses*/
-      ctx2[12] + " svelte-c7odu8")) {
+      16384 && div_class_value !== (div_class_value = "application tjs-app " + /*appClasses*/
+      ctx2[14] + " svelte-xfthie")) {
         attr(div, "class", div_class_value);
       }
       if (!current || dirty[0] & /*application*/
@@ -15385,11 +18790,31 @@ function create_else_block(ctx) {
         ctx2[8]
       );
       if (dynamicAction_action && is_function(dynamicAction_action.update) && dirty[0] & /*appResizeObserver*/
-      8192) dynamicAction_action.update.call(
+      32768) dynamicAction_action.update.call(
         null,
         /*appResizeObserver*/
-        ctx2[13]
+        ctx2[15]
       );
+      if (!current || dirty[0] & /*appClasses, cqEnabled, $containerQueryType*/
+      26624) {
+        toggle_class(
+          div,
+          "tjs-cq-inline-size",
+          /*cqEnabled*/
+          ctx2[13] && /*$containerQueryType*/
+          ctx2[11] === "inline-size"
+        );
+      }
+      if (!current || dirty[0] & /*appClasses, cqEnabled, $containerQueryType*/
+      26624) {
+        toggle_class(
+          div,
+          "tjs-cq-size",
+          /*cqEnabled*/
+          ctx2[13] && /*$containerQueryType*/
+          ctx2[11] === "size"
+        );
+      }
     },
     i(local) {
       if (current) return;
@@ -15412,10 +18837,10 @@ function create_else_block(ctx) {
       }
       destroy_component(tjsapplicationheader);
       if (default_slot) default_slot.d(detaching);
-      ctx[43](null);
+      ctx[54](null);
       destroy_component(resizablehandle);
       destroy_component(tjsfocuswrap);
-      ctx[44](null);
+      ctx[55](null);
       mounted = false;
       run_all(dispose);
     }
@@ -15455,13 +18880,13 @@ function create_if_block(ctx) {
   });
   const default_slot_template = (
     /*#slots*/
-    ctx[40].default
+    ctx[51].default
   );
   const default_slot = create_slot(
     default_slot_template,
     ctx,
     /*$$scope*/
-    ctx[39],
+    ctx[50],
     null
   );
   resizablehandle = new ResizableHandle({});
@@ -15482,16 +18907,30 @@ function create_if_block(ctx) {
       create_component(resizablehandle.$$.fragment);
       t2 = space();
       create_component(tjsfocuswrap.$$.fragment);
-      attr(section, "class", "window-content svelte-c7odu8");
+      attr(section, "class", "window-content svelte-xfthie");
       attr(section, "tabindex", "-1");
       attr(div, "id", div_id_value = /*application*/
       ctx[10].id);
-      attr(div, "class", div_class_value = "application " + /*appClasses*/
-      ctx[12] + " svelte-c7odu8");
+      attr(div, "class", div_class_value = "application tjs-app " + /*appClasses*/
+      ctx[14] + " svelte-xfthie");
       attr(div, "data-appid", div_data_appid_value = /*application*/
       ctx[10].appId);
       attr(div, "role", "application");
       attr(div, "tabindex", "-1");
+      toggle_class(
+        div,
+        "tjs-cq-inline-size",
+        /*cqEnabled*/
+        ctx[13] && /*$containerQueryType*/
+        ctx[11] === "inline-size"
+      );
+      toggle_class(
+        div,
+        "tjs-cq-size",
+        /*cqEnabled*/
+        ctx[13] && /*$containerQueryType*/
+        ctx[11] === "size"
+      );
     },
     m(target, anchor) {
       insert(target, div, anchor);
@@ -15501,12 +18940,12 @@ function create_if_block(ctx) {
       if (default_slot) {
         default_slot.m(section, null);
       }
-      ctx[41](section);
+      ctx[52](section);
       append(div, t1);
       mount_component(resizablehandle, div, null);
       append(div, t2);
       mount_component(tjsfocuswrap, div, null);
-      ctx[42](div);
+      ctx[53](div);
       current = true;
       if (!mounted) {
         dispose = [
@@ -15514,7 +18953,7 @@ function create_if_block(ctx) {
             section,
             "pointerdown",
             /*onPointerdownContent*/
-            ctx[24]
+            ctx[30]
           ),
           action_destroyer(applyStyles_action = applyStyles.call(
             null,
@@ -15524,28 +18963,28 @@ function create_if_block(ctx) {
           )),
           action_destroyer(
             /*contentResizeObserver*/
-            ctx[19].call(
+            ctx[23].call(
               null,
               section,
               /*resizeObservedContent*/
-              ctx[25]
+              ctx[31]
             )
           ),
           listen(div, "close:popup", stop_propagation(prevent_default(
             /*onClosePopup*/
-            ctx[21]
+            ctx[27]
           ))),
           listen(
             div,
             "keydown",
             /*onKeydown*/
-            ctx[22]
+            ctx[28]
           ),
           listen(
             div,
             "pointerdown",
-            /*onPointerdownApp*/
-            ctx[23],
+            /*onPointerdownAppCapture*/
+            ctx[29],
             true
           ),
           action_destroyer(applyStyles_action_1 = applyStyles.call(
@@ -15558,7 +18997,7 @@ function create_if_block(ctx) {
             null,
             div,
             /*appResizeObserver*/
-            ctx[13]
+            ctx[15]
           ))
         ];
         mounted = true;
@@ -15576,20 +19015,20 @@ function create_if_block(ctx) {
       tjsapplicationheader.$set(tjsapplicationheader_changes);
       if (default_slot) {
         if (default_slot.p && (!current || dirty[1] & /*$$scope*/
-        256)) {
+        524288)) {
           update_slot_base(
             default_slot,
             default_slot_template,
             ctx,
             /*$$scope*/
-            ctx[39],
+            ctx[50],
             !current ? get_all_dirty_from_scope(
               /*$$scope*/
-              ctx[39]
+              ctx[50]
             ) : get_slot_changes(
               default_slot_template,
               /*$$scope*/
-              ctx[39],
+              ctx[50],
               dirty,
               null
             ),
@@ -15614,8 +19053,8 @@ function create_if_block(ctx) {
         attr(div, "id", div_id_value);
       }
       if (!current || dirty[0] & /*appClasses*/
-      4096 && div_class_value !== (div_class_value = "application " + /*appClasses*/
-      ctx[12] + " svelte-c7odu8")) {
+      16384 && div_class_value !== (div_class_value = "application tjs-app " + /*appClasses*/
+      ctx[14] + " svelte-xfthie")) {
         attr(div, "class", div_class_value);
       }
       if (!current || dirty[0] & /*application*/
@@ -15630,11 +19069,31 @@ function create_if_block(ctx) {
         ctx[8]
       );
       if (dynamicAction_action && is_function(dynamicAction_action.update) && dirty[0] & /*appResizeObserver*/
-      8192) dynamicAction_action.update.call(
+      32768) dynamicAction_action.update.call(
         null,
         /*appResizeObserver*/
-        ctx[13]
+        ctx[15]
       );
+      if (!current || dirty[0] & /*appClasses, cqEnabled, $containerQueryType*/
+      26624) {
+        toggle_class(
+          div,
+          "tjs-cq-inline-size",
+          /*cqEnabled*/
+          ctx[13] && /*$containerQueryType*/
+          ctx[11] === "inline-size"
+        );
+      }
+      if (!current || dirty[0] & /*appClasses, cqEnabled, $containerQueryType*/
+      26624) {
+        toggle_class(
+          div,
+          "tjs-cq-size",
+          /*cqEnabled*/
+          ctx[13] && /*$containerQueryType*/
+          ctx[11] === "size"
+        );
+      }
     },
     i(local) {
       if (current) return;
@@ -15677,10 +19136,10 @@ function create_if_block(ctx) {
       }
       destroy_component(tjsapplicationheader);
       if (default_slot) default_slot.d(detaching);
-      ctx[41](null);
+      ctx[52](null);
       destroy_component(resizablehandle);
       destroy_component(tjsfocuswrap);
-      ctx[42](null);
+      ctx[53](null);
       if (detaching && div_outro) div_outro.end();
       mounted = false;
       run_all(dispose);
@@ -15755,9 +19214,14 @@ function create_fragment$1(ctx) {
 }
 function instance$1($$self, $$props, $$invalidate) {
   let appResizeObserver;
+  let appClasses;
   let $focusKeep;
   let $focusAuto;
-  let $themeStore;
+  let $containerQueryType;
+  let $cqTypes;
+  let $appThemeName;
+  let $themeTokenStore;
+  let $activeClasses;
   let $minimized;
   let $focusTrap;
   let $resizeObservable;
@@ -15769,20 +19233,25 @@ function instance$1($$self, $$props, $$invalidate) {
   let { stylesApp = void 0 } = $$props;
   let { stylesContent = void 0 } = $$props;
   const application = getContext("#external")?.application;
-  const { focusAuto, focusKeep, focusTrap } = application.reactive.storeAppOptions;
-  component_subscribe($$self, focusAuto, (value) => $$invalidate(34, $focusAuto = value));
-  component_subscribe($$self, focusKeep, (value) => $$invalidate(45, $focusKeep = value));
-  component_subscribe($$self, focusTrap, (value) => $$invalidate(37, $focusTrap = value));
+  const { containerQueryType, focusAuto, focusKeep, focusTrap } = application.reactive.storeAppOptions;
+  component_subscribe($$self, containerQueryType, (value) => $$invalidate(11, $containerQueryType = value));
+  component_subscribe($$self, focusAuto, (value) => $$invalidate(42, $focusAuto = value));
+  component_subscribe($$self, focusKeep, (value) => $$invalidate(56, $focusKeep = value));
+  component_subscribe($$self, focusTrap, (value) => $$invalidate(48, $focusTrap = value));
   const { minimized } = application.reactive.storeUIState;
-  component_subscribe($$self, minimized, (value) => $$invalidate(36, $minimized = value));
+  component_subscribe($$self, minimized, (value) => $$invalidate(47, $minimized = value));
   const { resizeObservable } = application.position.stores;
-  component_subscribe($$self, resizeObservable, (value) => $$invalidate(38, $resizeObservable = value));
+  component_subscribe($$self, resizeObservable, (value) => $$invalidate(49, $resizeObservable = value));
+  const cqTypes = new CQPositionValidate(application.position);
+  component_subscribe($$self, cqTypes, (value) => $$invalidate(43, $cqTypes = value));
   let { appOffsetHeight = false } = $$props;
   let { appOffsetWidth = false } = $$props;
   const initialAppResizeObserver = !!appOffsetHeight || !!appOffsetWidth;
   let { contentOffsetHeight = false } = $$props;
   let { contentOffsetWidth = false } = $$props;
-  const contentResizeObserver = !!contentOffsetHeight || !!contentOffsetWidth ? resizeObserver : () => null;
+  let { contentHeight = false } = $$props;
+  let { contentWidth = false } = $$props;
+  const contentResizeObserver = !!contentOffsetHeight || !!contentOffsetWidth || !!contentHeight || !!contentWidth ? resizeObserver : () => null;
   const internal = new AppShellContextInternal();
   const s_IGNORE_CLASSES = { ignoreClasses: ["tjs-focus-wrap"] };
   setContext("#internal", internal);
@@ -15795,10 +19264,18 @@ function instance$1($$self, $$props, $$invalidate) {
   let { outTransitionOptions = TJSDefaultTransition.options } = $$props;
   let oldTransition = TJSDefaultTransition.default;
   let oldTransitionOptions = void 0;
-  const themeStore = ThemeObserver.stores.theme;
-  component_subscribe($$self, themeStore, (value) => $$invalidate(35, $themeStore = value));
-  let appClasses = "";
-  onMount(() => elementRoot.focus());
+  const themeTokenStore = ThemeObserver.stores.themeToken;
+  component_subscribe($$self, themeTokenStore, (value) => $$invalidate(45, $themeTokenStore = value));
+  const activeClasses = application.reactive.activeClasses;
+  component_subscribe($$self, activeClasses, (value) => $$invalidate(46, $activeClasses = value));
+  const appThemeName = application.reactive.storeAppOptions.themeName;
+  component_subscribe($$self, appThemeName, (value) => $$invalidate(44, $appThemeName = value));
+  onMount(() => {
+    if ($focusAuto) {
+      elementRoot.focus();
+    }
+  });
+  let cqEnabled = false;
   function onClosePopup(event) {
     if (!$focusAuto) {
       return;
@@ -15824,7 +19301,8 @@ function instance$1($$self, $$props, $$invalidate) {
     }
   }
   function onKeydown(event) {
-    if ((event.target === elementRoot || event.target === elementContent) && KeyboardManager && KeyboardManager?._getMatchingActions?.(KeyboardManager?.getKeyboardEventContext?.(event))?.length) {
+    const FVTTKeyboardManager = foundry.helpers.interaction.KeyboardManager;
+    if ((event.target === elementRoot || event.target === elementContent) && FVTTKeyboardManager && FVTTKeyboardManager?._getMatchingActions?.(FVTTKeyboardManager?.getKeyboardEventContext?.(event))?.length) {
       event.target?.blur();
       return;
     }
@@ -15841,14 +19319,10 @@ function instance$1($$self, $$props, $$invalidate) {
         event.stopPropagation();
       }
     }
-    if (typeof application?.options?.popOut === "boolean" && application.options.popOut && application !== globalThis.ui?.activeWindow) {
-      application.bringToTop.call(application);
-    }
+    application.bringToTop.call(application);
   }
-  function onPointerdownApp() {
-    if (typeof application?.options?.popOut === "boolean" && application.options.popOut && application !== globalThis.ui?.activeWindow) {
-      application.bringToTop.call(application);
-    }
+  function onPointerdownAppCapture() {
+    application.bringToTop.call(application);
   }
   function onPointerdownContent(event) {
     const focusable = A11yHelper.isFocusable(event.target);
@@ -15866,20 +19340,26 @@ function instance$1($$self, $$props, $$invalidate) {
       }
     }
   }
-  function resizeObservedContent(offsetWidth, offsetHeight) {
-    $$invalidate(29, contentOffsetWidth = offsetWidth);
-    $$invalidate(28, contentOffsetHeight = offsetHeight);
-  }
-  function resizeObservedApp(offsetWidth, offsetHeight, contentWidth, contentHeight) {
+  function resizeObservedApp(offsetWidth, offsetHeight, width, height) {
     application.position.stores.resizeObserved.update((object) => {
-      object.contentWidth = contentWidth;
-      object.contentHeight = contentHeight;
+      object.contentWidth = width;
+      object.contentHeight = height;
       object.offsetWidth = offsetWidth;
       object.offsetHeight = offsetHeight;
       return object;
     });
-    $$invalidate(26, appOffsetHeight = offsetHeight);
-    $$invalidate(27, appOffsetWidth = offsetWidth);
+    $$invalidate(32, appOffsetHeight = offsetHeight);
+    $$invalidate(33, appOffsetWidth = offsetWidth);
+  }
+  function resizeObservedContent(offsetWidth, offsetHeight, width, height) {
+    $$invalidate(35, contentOffsetWidth = offsetWidth);
+    $$invalidate(34, contentOffsetHeight = offsetHeight);
+    $$invalidate(37, contentWidth = width);
+    $$invalidate(36, contentHeight = height);
+    internal.stores.contentOffsetWidth.set(contentOffsetWidth);
+    internal.stores.contentOffsetHeight.set(contentOffsetHeight);
+    internal.stores.contentWidth.set(contentWidth);
+    internal.stores.contentHeight.set(contentHeight);
   }
   function section_binding($$value) {
     binding_callbacks[$$value ? "unshift" : "push"](() => {
@@ -15912,22 +19392,24 @@ function instance$1($$self, $$props, $$invalidate) {
     if ("draggableOptions" in $$props2) $$invalidate(7, draggableOptions = $$props2.draggableOptions);
     if ("stylesApp" in $$props2) $$invalidate(8, stylesApp = $$props2.stylesApp);
     if ("stylesContent" in $$props2) $$invalidate(9, stylesContent = $$props2.stylesContent);
-    if ("appOffsetHeight" in $$props2) $$invalidate(26, appOffsetHeight = $$props2.appOffsetHeight);
-    if ("appOffsetWidth" in $$props2) $$invalidate(27, appOffsetWidth = $$props2.appOffsetWidth);
-    if ("contentOffsetHeight" in $$props2) $$invalidate(28, contentOffsetHeight = $$props2.contentOffsetHeight);
-    if ("contentOffsetWidth" in $$props2) $$invalidate(29, contentOffsetWidth = $$props2.contentOffsetWidth);
-    if ("transition" in $$props2) $$invalidate(30, transition = $$props2.transition);
+    if ("appOffsetHeight" in $$props2) $$invalidate(32, appOffsetHeight = $$props2.appOffsetHeight);
+    if ("appOffsetWidth" in $$props2) $$invalidate(33, appOffsetWidth = $$props2.appOffsetWidth);
+    if ("contentOffsetHeight" in $$props2) $$invalidate(34, contentOffsetHeight = $$props2.contentOffsetHeight);
+    if ("contentOffsetWidth" in $$props2) $$invalidate(35, contentOffsetWidth = $$props2.contentOffsetWidth);
+    if ("contentHeight" in $$props2) $$invalidate(36, contentHeight = $$props2.contentHeight);
+    if ("contentWidth" in $$props2) $$invalidate(37, contentWidth = $$props2.contentWidth);
+    if ("transition" in $$props2) $$invalidate(38, transition = $$props2.transition);
     if ("inTransition" in $$props2) $$invalidate(2, inTransition = $$props2.inTransition);
     if ("outTransition" in $$props2) $$invalidate(3, outTransition = $$props2.outTransition);
-    if ("transitionOptions" in $$props2) $$invalidate(31, transitionOptions = $$props2.transitionOptions);
+    if ("transitionOptions" in $$props2) $$invalidate(39, transitionOptions = $$props2.transitionOptions);
     if ("inTransitionOptions" in $$props2) $$invalidate(4, inTransitionOptions = $$props2.inTransitionOptions);
     if ("outTransitionOptions" in $$props2) $$invalidate(5, outTransitionOptions = $$props2.outTransitionOptions);
-    if ("$$scope" in $$props2) $$invalidate(39, $$scope = $$props2.$$scope);
+    if ("$$scope" in $$props2) $$invalidate(50, $$scope = $$props2.$$scope);
   };
   $$self.$$.update = () => {
     if ($$self.$$.dirty[1] & /*$resizeObservable*/
-    128) {
-      $$invalidate(13, appResizeObserver = initialAppResizeObserver || $resizeObservable ? {
+    262144) {
+      $$invalidate(15, appResizeObserver = initialAppResizeObserver || $resizeObservable ? {
         action: resizeObserver,
         data: resizeObservedApp
       } : void 0);
@@ -15935,36 +19417,35 @@ function instance$1($$self, $$props, $$invalidate) {
     if ($$self.$$.dirty[0] & /*elementContent*/
     1) {
       if (elementContent !== void 0 && elementContent !== null) {
-        getContext("#internal").stores.elementContent.set(elementContent);
+        internal.stores.elementContent.set(elementContent);
       }
     }
     if ($$self.$$.dirty[0] & /*elementRoot*/
     2) {
       if (elementRoot !== void 0 && elementRoot !== null) {
-        getContext("#internal").stores.elementRoot.set(elementRoot);
+        internal.stores.elementRoot.set(elementRoot);
       }
     }
     if ($$self.$$.dirty[1] & /*$focusAuto, $focusTrap, $minimized*/
-    104) {
-      $$invalidate(11, focusWrapEnabled = $focusAuto && $focusTrap && !$minimized);
+    198656) {
+      $$invalidate(12, focusWrapEnabled = $focusAuto && $focusTrap && !$minimized);
     }
-    if ($$self.$$.dirty[0] & /*transition*/
-    1073741824 | $$self.$$.dirty[1] & /*oldTransition*/
-    2) {
+    if ($$self.$$.dirty[1] & /*oldTransition, transition*/
+    640) {
       if (oldTransition !== transition) {
         const newTransition = typeof transition === "function" ? transition : TJSDefaultTransition.default;
         $$invalidate(2, inTransition = newTransition);
         $$invalidate(3, outTransition = newTransition);
-        $$invalidate(32, oldTransition = newTransition);
+        $$invalidate(40, oldTransition = newTransition);
       }
     }
     if ($$self.$$.dirty[1] & /*oldTransitionOptions, transitionOptions*/
-    5) {
+    1280) {
       if (oldTransitionOptions !== transitionOptions) {
         const newOptions = transitionOptions !== TJSDefaultTransition.options && isObject(transitionOptions) ? transitionOptions : TJSDefaultTransition.options;
         $$invalidate(4, inTransitionOptions = newOptions);
         $$invalidate(5, outTransitionOptions = newOptions);
-        $$invalidate(33, oldTransitionOptions = newOptions);
+        $$invalidate(41, oldTransitionOptions = newOptions);
       }
     }
     if ($$self.$$.dirty[0] & /*inTransition*/
@@ -15997,11 +19478,19 @@ function instance$1($$self, $$props, $$invalidate) {
         $$invalidate(5, outTransitionOptions = TJSDefaultTransition.options);
       }
     }
-    if ($$self.$$.dirty[0] & /*application*/
-    1024 | $$self.$$.dirty[1] & /*$themeStore*/
-    16) {
-      if ($themeStore) {
-        $$invalidate(12, appClasses = ThemeObserver.appClasses(application));
+    if ($$self.$$.dirty[1] & /*$activeClasses, $themeTokenStore, $appThemeName*/
+    57344) {
+      $$invalidate(14, appClasses = FVTTAppTheme.appClasses($activeClasses, $themeTokenStore, $appThemeName));
+    }
+    if ($$self.$$.dirty[0] & /*$containerQueryType*/
+    2048 | $$self.$$.dirty[1] & /*$cqTypes*/
+    4096) {
+      if ($cqTypes.validate($containerQueryType)) {
+        internal.stores.cqEnabled.set(true);
+        requestAnimationFrame(() => $$invalidate(13, cqEnabled = true));
+      } else {
+        $$invalidate(13, cqEnabled = false);
+        internal.stores.cqEnabled.set(false);
       }
     }
   };
@@ -16017,31 +19506,42 @@ function instance$1($$self, $$props, $$invalidate) {
     stylesApp,
     stylesContent,
     application,
+    $containerQueryType,
     focusWrapEnabled,
+    cqEnabled,
     appClasses,
     appResizeObserver,
+    containerQueryType,
     focusAuto,
     focusKeep,
     focusTrap,
     minimized,
     resizeObservable,
+    cqTypes,
     contentResizeObserver,
-    themeStore,
+    themeTokenStore,
+    activeClasses,
+    appThemeName,
     onClosePopup,
     onKeydown,
-    onPointerdownApp,
+    onPointerdownAppCapture,
     onPointerdownContent,
     resizeObservedContent,
     appOffsetHeight,
     appOffsetWidth,
     contentOffsetHeight,
     contentOffsetWidth,
+    contentHeight,
+    contentWidth,
     transition,
     transitionOptions,
     oldTransition,
     oldTransitionOptions,
     $focusAuto,
-    $themeStore,
+    $cqTypes,
+    $appThemeName,
+    $themeTokenStore,
+    $activeClasses,
     $minimized,
     $focusTrap,
     $resizeObservable,
@@ -16056,7 +19556,7 @@ function instance$1($$self, $$props, $$invalidate) {
 class ApplicationShell extends SvelteComponent {
   constructor(options) {
     super();
-    init(
+    init$1(
       this,
       options,
       instance$1,
@@ -16069,14 +19569,16 @@ class ApplicationShell extends SvelteComponent {
         draggableOptions: 7,
         stylesApp: 8,
         stylesContent: 9,
-        appOffsetHeight: 26,
-        appOffsetWidth: 27,
-        contentOffsetHeight: 28,
-        contentOffsetWidth: 29,
-        transition: 30,
+        appOffsetHeight: 32,
+        appOffsetWidth: 33,
+        contentOffsetHeight: 34,
+        contentOffsetWidth: 35,
+        contentHeight: 36,
+        contentWidth: 37,
+        transition: 38,
         inTransition: 2,
         outTransition: 3,
-        transitionOptions: 31,
+        transitionOptions: 39,
         inTransitionOptions: 4,
         outTransitionOptions: 5
       },
@@ -16127,35 +19629,49 @@ class ApplicationShell extends SvelteComponent {
     flush();
   }
   get appOffsetHeight() {
-    return this.$$.ctx[26];
+    return this.$$.ctx[32];
   }
   set appOffsetHeight(appOffsetHeight) {
     this.$$set({ appOffsetHeight });
     flush();
   }
   get appOffsetWidth() {
-    return this.$$.ctx[27];
+    return this.$$.ctx[33];
   }
   set appOffsetWidth(appOffsetWidth) {
     this.$$set({ appOffsetWidth });
     flush();
   }
   get contentOffsetHeight() {
-    return this.$$.ctx[28];
+    return this.$$.ctx[34];
   }
   set contentOffsetHeight(contentOffsetHeight) {
     this.$$set({ contentOffsetHeight });
     flush();
   }
   get contentOffsetWidth() {
-    return this.$$.ctx[29];
+    return this.$$.ctx[35];
   }
   set contentOffsetWidth(contentOffsetWidth) {
     this.$$set({ contentOffsetWidth });
     flush();
   }
+  get contentHeight() {
+    return this.$$.ctx[36];
+  }
+  set contentHeight(contentHeight) {
+    this.$$set({ contentHeight });
+    flush();
+  }
+  get contentWidth() {
+    return this.$$.ctx[37];
+  }
+  set contentWidth(contentWidth) {
+    this.$$set({ contentWidth });
+    flush();
+  }
   get transition() {
-    return this.$$.ctx[30];
+    return this.$$.ctx[38];
   }
   set transition(transition) {
     this.$$set({ transition });
@@ -16176,7 +19692,7 @@ class ApplicationShell extends SvelteComponent {
     flush();
   }
   get transitionOptions() {
-    return this.$$.ctx[31];
+    return this.$$.ctx[39];
   }
   set transitionOptions(transitionOptions) {
     this.$$set({ transitionOptions });
@@ -16197,70 +19713,79 @@ class ApplicationShell extends SvelteComponent {
     flush();
   }
 }
-cssVariables.setProperties({
-  // TJSApplicationShell app background.
-  "--tjs-app-background-default": `url("${globalThis.foundry.utils.getRoute("/ui/denim075.png")}")`,
-  "--tjs-app-resize-handle-background-default": `transparent url("${globalThis.foundry.utils.getRoute("/ui/resize-handle.webp")}") no-repeat center / contain`
-}, false);
-const MODULE_ID = "foundryvtt-TJS-module-template";
-const MODULE_TITLE = "foundryvtt TJS module template";
-const LOG_PREFIX = "FOUNDRYVTTTJSMODULETEMPLATE |";
-const log = {
-  ASSERT: 1,
-  ERROR: 2,
-  WARN: 3,
-  INFO: 4,
-  DEBUG: 5,
-  VERBOSE: 6,
-  set level(level) {
-    this.a = level >= this.ASSERT ? console.assert.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.e = level >= this.ERROR ? console.error.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.w = level >= this.WARN ? console.warn.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.i = level >= this.INFO ? console.info.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.d = level >= this.DEBUG ? console.debug.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.v = level >= this.VERBOSE ? console.log.bind(window.console, LOG_PREFIX) : () => {
-    };
-    this.loggingLevel = level;
-  },
-  get level() {
-    return this.loggingLevel;
-  }
-};
+Hooks.once("init", () => FVTTConfigure.initialize());
 function create_default_slot(ctx) {
   let main;
-  let footer;
+  let h3;
+  let p0;
   let p1;
-  let a;
+  let p2;
+  let footer0;
+  let div0;
+  let div2;
+  let div1;
+  let a1;
+  let footer1;
+  let p3;
+  let a2;
   return {
     c() {
       main = element("main");
-      main.innerHTML = `<p>Welcome</p>`;
-      footer = element("footer");
+      h3 = element("h3");
+      h3.textContent = "AuthorSync Integration";
+      p0 = element("p");
+      p0.textContent = "This module adds an AuthorSync export action directly to the Foundry Journal sheet.";
       p1 = element("p");
-      p1.textContent = `${MODULE_TITLE} is sponsored by `;
-      a = element("a");
-      a.textContent = "Round Table Games";
-      attr(main, "class", "svelte-1f5phzh");
-      attr(a, "href", "https://www.round-table.games");
-      attr(a, "class", "svelte-1f5phzh");
-      attr(footer, "class", "svelte-1f5phzh");
+      p1.textContent = "Use the button in the Journal header to export the current JournalEntry as a ZIP bundle for AuthorSync.";
+      p2 = element("p");
+      p2.textContent = "The welcome panel is informational only and no longer contains export controls.";
+      footer0 = element("footer");
+      div0 = element("div");
+      div0.innerHTML = `<a href="https://www.aardvark.games" class="svelte-69t7wh"><img class="white" src="/modules/${MODULE_ID}/assets/aardvark-logo.webp" alt="Aardvark Game Studios Logo" height="50" width="50" style="fill: white; border: none; width: auto;"/></a>`;
+      div2 = element("div");
+      div1 = element("div");
+      div1.textContent = `${localize$1("Title")} ${localize$1("Welcome.CreatedBy")}`;
+      a1 = element("a");
+      a1.textContent = "Aardvark Game Studios";
+      footer1 = element("footer");
+      p3 = element("p");
+      p3.textContent = `${MODULE_TITLE} is sponsored by`;
+      a2 = element("a");
+      a2.textContent = "Round Table Games";
+      attr(h3, "class", "svelte-69t7wh");
+      attr(p0, "class", "svelte-69t7wh");
+      attr(p1, "class", "svelte-69t7wh");
+      attr(p2, "class", "svelte-69t7wh");
+      attr(div0, "class", "logo");
+      attr(a1, "href", "https://www.aardvark.games");
+      attr(a1, "class", "svelte-69t7wh");
+      attr(div2, "class", "left");
+      attr(footer0, "class", "svelte-69t7wh");
+      attr(main, "class", "svelte-69t7wh");
+      attr(a2, "href", "https://www.round-table.games");
+      attr(a2, "class", "svelte-69t7wh");
+      attr(footer1, "class", "svelte-69t7wh");
     },
     m(target, anchor) {
       insert(target, main, anchor);
-      insert(target, footer, anchor);
-      append(footer, p1);
-      append(footer, a);
+      append(main, h3);
+      append(main, p0);
+      append(main, p1);
+      append(main, p2);
+      append(main, footer0);
+      append(footer0, div0);
+      append(footer0, div2);
+      append(div2, div1);
+      append(div2, a1);
+      insert(target, footer1, anchor);
+      append(footer1, p3);
+      append(footer1, a2);
     },
     p: noop,
     d(detaching) {
       if (detaching) {
         detach(main);
-        detach(footer);
+        detach(footer1);
       }
     }
   };
@@ -16350,7 +19875,7 @@ function instance($$self, $$props, $$invalidate) {
 class WelcomeAppShell extends SvelteComponent {
   constructor(options) {
     super();
-    init(this, options, instance, create_fragment, safe_not_equal, { elementRoot: 0, version: 1 });
+    init$1(this, options, instance, create_fragment, safe_not_equal, { elementRoot: 0, version: 1 });
   }
   get elementRoot() {
     return this.$$.ctx[0];
@@ -16381,7 +19906,7 @@ class WelcomeApplication extends SvelteApp {
       classes: ["<s_SVELTE_HASH_ID>"],
       resizable: true,
       minimizable: true,
-      width: 220,
+      width: 500,
       height: 400,
       // headerIcon: 'path/to/img.svg',
       title: game.i18n.localize(`${MODULE_TITLE} v${version}`),
@@ -16399,6 +19924,8 @@ class WelcomeApplication extends SvelteApp {
 }
 function registerSettings(app) {
   log.i("Building module settings");
+  debugSetting();
+  debugHooksSetting();
   dontShowWelcome();
 }
 function dontShowWelcome() {
@@ -16411,20 +19938,2622 @@ function dontShowWelcome() {
     type: Boolean
   });
 }
-window.log = log;
-log.level = log.DEBUG;
-Hooks.once("init", (app, html, data) => {
+function debugSetting() {
+  game.settings.register(MODULE_ID, "debug", {
+    name: game.i18n.localize(`${MODULE_ID}.Setting.Debug.Name`),
+    hint: game.i18n.localize(`${MODULE_ID}.Setting.Debug.Hint`),
+    scope: "world",
+    config: true,
+    default: false,
+    type: Boolean,
+    onChange: () => {
+      Dialog.confirm({
+        title: game.i18n.localize(`${MODULE_ID}.Setting.ReloadRequiredTitle`),
+        content: `<p>${game.i18n.localize(`${MODULE_ID}.Setting.ReloadRequiredContent`)}</p>`,
+        yes: () => window.location.reload(),
+        no: () => {
+        },
+        defaultYes: true
+      });
+    }
+  });
+}
+function debugHooksSetting() {
+  game.settings.register(MODULE_ID, "debug.hooks", {
+    name: game.i18n.localize(`${MODULE_ID}.Setting.DebugHooks.Name`),
+    hint: game.i18n.localize(`${MODULE_ID}.Setting.DebugHooks.Hint`),
+    scope: "world",
+    config: true,
+    default: false,
+    type: Boolean,
+    onChange: () => {
+      Dialog.confirm({
+        title: game.i18n.localize(`${MODULE_ID}.Setting.ReloadRequiredTitle`),
+        content: `<p>${game.i18n.localize(`${MODULE_ID}.Setting.ReloadRequiredContent`)}</p>`,
+        yes: () => window.location.reload(),
+        no: () => {
+        },
+        defaultYes: true
+      });
+    }
+  });
+}
+var commonjsGlobal = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : {};
+function getDefaultExportFromCjs(x) {
+  return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
+}
+function commonjsRequire(path) {
+  throw new Error('Could not dynamically require "' + path + '". Please configure the dynamicRequireTargets or/and ignoreDynamicRequires option of @rollup/plugin-commonjs appropriately for this require call to work.');
+}
+var jszip_min = { exports: {} };
+/*!
+
+JSZip v3.10.1 - A JavaScript class for generating and reading zip files
+<http://stuartk.com/jszip>
+
+(c) 2009-2016 Stuart Knightley <stuart [at] stuartk.com>
+Dual licenced under the MIT license or GPLv3. See https://raw.github.com/Stuk/jszip/main/LICENSE.markdown.
+
+JSZip uses the library pako released under the MIT license :
+https://github.com/nodeca/pako/blob/main/LICENSE
+*/
+(function(module, exports) {
+  !function(e) {
+    module.exports = e();
+  }(function() {
+    return function s(a, o, h) {
+      function u(r, e2) {
+        if (!o[r]) {
+          if (!a[r]) {
+            var t = "function" == typeof commonjsRequire && commonjsRequire;
+            if (!e2 && t) return t(r, true);
+            if (l) return l(r, true);
+            var n = new Error("Cannot find module '" + r + "'");
+            throw n.code = "MODULE_NOT_FOUND", n;
+          }
+          var i = o[r] = { exports: {} };
+          a[r][0].call(i.exports, function(e3) {
+            var t2 = a[r][1][e3];
+            return u(t2 || e3);
+          }, i, i.exports, s, a, o, h);
+        }
+        return o[r].exports;
+      }
+      for (var l = "function" == typeof commonjsRequire && commonjsRequire, e = 0; e < h.length; e++) u(h[e]);
+      return u;
+    }({ 1: [function(e, t, r) {
+      var d = e("./utils"), c = e("./support"), p = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+      r.encode = function(e2) {
+        for (var t2, r2, n, i, s, a, o, h = [], u = 0, l = e2.length, f = l, c2 = "string" !== d.getTypeOf(e2); u < e2.length; ) f = l - u, n = c2 ? (t2 = e2[u++], r2 = u < l ? e2[u++] : 0, u < l ? e2[u++] : 0) : (t2 = e2.charCodeAt(u++), r2 = u < l ? e2.charCodeAt(u++) : 0, u < l ? e2.charCodeAt(u++) : 0), i = t2 >> 2, s = (3 & t2) << 4 | r2 >> 4, a = 1 < f ? (15 & r2) << 2 | n >> 6 : 64, o = 2 < f ? 63 & n : 64, h.push(p.charAt(i) + p.charAt(s) + p.charAt(a) + p.charAt(o));
+        return h.join("");
+      }, r.decode = function(e2) {
+        var t2, r2, n, i, s, a, o = 0, h = 0, u = "data:";
+        if (e2.substr(0, u.length) === u) throw new Error("Invalid base64 input, it looks like a data url.");
+        var l, f = 3 * (e2 = e2.replace(/[^A-Za-z0-9+/=]/g, "")).length / 4;
+        if (e2.charAt(e2.length - 1) === p.charAt(64) && f--, e2.charAt(e2.length - 2) === p.charAt(64) && f--, f % 1 != 0) throw new Error("Invalid base64 input, bad content length.");
+        for (l = c.uint8array ? new Uint8Array(0 | f) : new Array(0 | f); o < e2.length; ) t2 = p.indexOf(e2.charAt(o++)) << 2 | (i = p.indexOf(e2.charAt(o++))) >> 4, r2 = (15 & i) << 4 | (s = p.indexOf(e2.charAt(o++))) >> 2, n = (3 & s) << 6 | (a = p.indexOf(e2.charAt(o++))), l[h++] = t2, 64 !== s && (l[h++] = r2), 64 !== a && (l[h++] = n);
+        return l;
+      };
+    }, { "./support": 30, "./utils": 32 }], 2: [function(e, t, r) {
+      var n = e("./external"), i = e("./stream/DataWorker"), s = e("./stream/Crc32Probe"), a = e("./stream/DataLengthProbe");
+      function o(e2, t2, r2, n2, i2) {
+        this.compressedSize = e2, this.uncompressedSize = t2, this.crc32 = r2, this.compression = n2, this.compressedContent = i2;
+      }
+      o.prototype = { getContentWorker: function() {
+        var e2 = new i(n.Promise.resolve(this.compressedContent)).pipe(this.compression.uncompressWorker()).pipe(new a("data_length")), t2 = this;
+        return e2.on("end", function() {
+          if (this.streamInfo.data_length !== t2.uncompressedSize) throw new Error("Bug : uncompressed data size mismatch");
+        }), e2;
+      }, getCompressedWorker: function() {
+        return new i(n.Promise.resolve(this.compressedContent)).withStreamInfo("compressedSize", this.compressedSize).withStreamInfo("uncompressedSize", this.uncompressedSize).withStreamInfo("crc32", this.crc32).withStreamInfo("compression", this.compression);
+      } }, o.createWorkerFrom = function(e2, t2, r2) {
+        return e2.pipe(new s()).pipe(new a("uncompressedSize")).pipe(t2.compressWorker(r2)).pipe(new a("compressedSize")).withStreamInfo("compression", t2);
+      }, t.exports = o;
+    }, { "./external": 6, "./stream/Crc32Probe": 25, "./stream/DataLengthProbe": 26, "./stream/DataWorker": 27 }], 3: [function(e, t, r) {
+      var n = e("./stream/GenericWorker");
+      r.STORE = { magic: "\0\0", compressWorker: function() {
+        return new n("STORE compression");
+      }, uncompressWorker: function() {
+        return new n("STORE decompression");
+      } }, r.DEFLATE = e("./flate");
+    }, { "./flate": 7, "./stream/GenericWorker": 28 }], 4: [function(e, t, r) {
+      var n = e("./utils");
+      var o = function() {
+        for (var e2, t2 = [], r2 = 0; r2 < 256; r2++) {
+          e2 = r2;
+          for (var n2 = 0; n2 < 8; n2++) e2 = 1 & e2 ? 3988292384 ^ e2 >>> 1 : e2 >>> 1;
+          t2[r2] = e2;
+        }
+        return t2;
+      }();
+      t.exports = function(e2, t2) {
+        return void 0 !== e2 && e2.length ? "string" !== n.getTypeOf(e2) ? function(e3, t3, r2, n2) {
+          var i = o, s = n2 + r2;
+          e3 ^= -1;
+          for (var a = n2; a < s; a++) e3 = e3 >>> 8 ^ i[255 & (e3 ^ t3[a])];
+          return -1 ^ e3;
+        }(0 | t2, e2, e2.length, 0) : function(e3, t3, r2, n2) {
+          var i = o, s = n2 + r2;
+          e3 ^= -1;
+          for (var a = n2; a < s; a++) e3 = e3 >>> 8 ^ i[255 & (e3 ^ t3.charCodeAt(a))];
+          return -1 ^ e3;
+        }(0 | t2, e2, e2.length, 0) : 0;
+      };
+    }, { "./utils": 32 }], 5: [function(e, t, r) {
+      r.base64 = false, r.binary = false, r.dir = false, r.createFolders = true, r.date = null, r.compression = null, r.compressionOptions = null, r.comment = null, r.unixPermissions = null, r.dosPermissions = null;
+    }, {}], 6: [function(e, t, r) {
+      var n = null;
+      n = "undefined" != typeof Promise ? Promise : e("lie"), t.exports = { Promise: n };
+    }, { lie: 37 }], 7: [function(e, t, r) {
+      var n = "undefined" != typeof Uint8Array && "undefined" != typeof Uint16Array && "undefined" != typeof Uint32Array, i = e("pako"), s = e("./utils"), a = e("./stream/GenericWorker"), o = n ? "uint8array" : "array";
+      function h(e2, t2) {
+        a.call(this, "FlateWorker/" + e2), this._pako = null, this._pakoAction = e2, this._pakoOptions = t2, this.meta = {};
+      }
+      r.magic = "\b\0", s.inherits(h, a), h.prototype.processChunk = function(e2) {
+        this.meta = e2.meta, null === this._pako && this._createPako(), this._pako.push(s.transformTo(o, e2.data), false);
+      }, h.prototype.flush = function() {
+        a.prototype.flush.call(this), null === this._pako && this._createPako(), this._pako.push([], true);
+      }, h.prototype.cleanUp = function() {
+        a.prototype.cleanUp.call(this), this._pako = null;
+      }, h.prototype._createPako = function() {
+        this._pako = new i[this._pakoAction]({ raw: true, level: this._pakoOptions.level || -1 });
+        var t2 = this;
+        this._pako.onData = function(e2) {
+          t2.push({ data: e2, meta: t2.meta });
+        };
+      }, r.compressWorker = function(e2) {
+        return new h("Deflate", e2);
+      }, r.uncompressWorker = function() {
+        return new h("Inflate", {});
+      };
+    }, { "./stream/GenericWorker": 28, "./utils": 32, pako: 38 }], 8: [function(e, t, r) {
+      function A(e2, t2) {
+        var r2, n2 = "";
+        for (r2 = 0; r2 < t2; r2++) n2 += String.fromCharCode(255 & e2), e2 >>>= 8;
+        return n2;
+      }
+      function n(e2, t2, r2, n2, i2, s2) {
+        var a, o, h = e2.file, u = e2.compression, l = s2 !== O.utf8encode, f = I.transformTo("string", s2(h.name)), c = I.transformTo("string", O.utf8encode(h.name)), d = h.comment, p = I.transformTo("string", s2(d)), m = I.transformTo("string", O.utf8encode(d)), _ = c.length !== h.name.length, g = m.length !== d.length, b = "", v = "", y = "", w = h.dir, k = h.date, x = { crc32: 0, compressedSize: 0, uncompressedSize: 0 };
+        t2 && !r2 || (x.crc32 = e2.crc32, x.compressedSize = e2.compressedSize, x.uncompressedSize = e2.uncompressedSize);
+        var S = 0;
+        t2 && (S |= 8), l || !_ && !g || (S |= 2048);
+        var z = 0, C = 0;
+        w && (z |= 16), "UNIX" === i2 ? (C = 798, z |= function(e3, t3) {
+          var r3 = e3;
+          return e3 || (r3 = t3 ? 16893 : 33204), (65535 & r3) << 16;
+        }(h.unixPermissions, w)) : (C = 20, z |= function(e3) {
+          return 63 & (e3 || 0);
+        }(h.dosPermissions)), a = k.getUTCHours(), a <<= 6, a |= k.getUTCMinutes(), a <<= 5, a |= k.getUTCSeconds() / 2, o = k.getUTCFullYear() - 1980, o <<= 4, o |= k.getUTCMonth() + 1, o <<= 5, o |= k.getUTCDate(), _ && (v = A(1, 1) + A(B(f), 4) + c, b += "up" + A(v.length, 2) + v), g && (y = A(1, 1) + A(B(p), 4) + m, b += "uc" + A(y.length, 2) + y);
+        var E = "";
+        return E += "\n\0", E += A(S, 2), E += u.magic, E += A(a, 2), E += A(o, 2), E += A(x.crc32, 4), E += A(x.compressedSize, 4), E += A(x.uncompressedSize, 4), E += A(f.length, 2), E += A(b.length, 2), { fileRecord: R.LOCAL_FILE_HEADER + E + f + b, dirRecord: R.CENTRAL_FILE_HEADER + A(C, 2) + E + A(p.length, 2) + "\0\0\0\0" + A(z, 4) + A(n2, 4) + f + b + p };
+      }
+      var I = e("../utils"), i = e("../stream/GenericWorker"), O = e("../utf8"), B = e("../crc32"), R = e("../signature");
+      function s(e2, t2, r2, n2) {
+        i.call(this, "ZipFileWorker"), this.bytesWritten = 0, this.zipComment = t2, this.zipPlatform = r2, this.encodeFileName = n2, this.streamFiles = e2, this.accumulate = false, this.contentBuffer = [], this.dirRecords = [], this.currentSourceOffset = 0, this.entriesCount = 0, this.currentFile = null, this._sources = [];
+      }
+      I.inherits(s, i), s.prototype.push = function(e2) {
+        var t2 = e2.meta.percent || 0, r2 = this.entriesCount, n2 = this._sources.length;
+        this.accumulate ? this.contentBuffer.push(e2) : (this.bytesWritten += e2.data.length, i.prototype.push.call(this, { data: e2.data, meta: { currentFile: this.currentFile, percent: r2 ? (t2 + 100 * (r2 - n2 - 1)) / r2 : 100 } }));
+      }, s.prototype.openedSource = function(e2) {
+        this.currentSourceOffset = this.bytesWritten, this.currentFile = e2.file.name;
+        var t2 = this.streamFiles && !e2.file.dir;
+        if (t2) {
+          var r2 = n(e2, t2, false, this.currentSourceOffset, this.zipPlatform, this.encodeFileName);
+          this.push({ data: r2.fileRecord, meta: { percent: 0 } });
+        } else this.accumulate = true;
+      }, s.prototype.closedSource = function(e2) {
+        this.accumulate = false;
+        var t2 = this.streamFiles && !e2.file.dir, r2 = n(e2, t2, true, this.currentSourceOffset, this.zipPlatform, this.encodeFileName);
+        if (this.dirRecords.push(r2.dirRecord), t2) this.push({ data: function(e3) {
+          return R.DATA_DESCRIPTOR + A(e3.crc32, 4) + A(e3.compressedSize, 4) + A(e3.uncompressedSize, 4);
+        }(e2), meta: { percent: 100 } });
+        else for (this.push({ data: r2.fileRecord, meta: { percent: 0 } }); this.contentBuffer.length; ) this.push(this.contentBuffer.shift());
+        this.currentFile = null;
+      }, s.prototype.flush = function() {
+        for (var e2 = this.bytesWritten, t2 = 0; t2 < this.dirRecords.length; t2++) this.push({ data: this.dirRecords[t2], meta: { percent: 100 } });
+        var r2 = this.bytesWritten - e2, n2 = function(e3, t3, r3, n3, i2) {
+          var s2 = I.transformTo("string", i2(n3));
+          return R.CENTRAL_DIRECTORY_END + "\0\0\0\0" + A(e3, 2) + A(e3, 2) + A(t3, 4) + A(r3, 4) + A(s2.length, 2) + s2;
+        }(this.dirRecords.length, r2, e2, this.zipComment, this.encodeFileName);
+        this.push({ data: n2, meta: { percent: 100 } });
+      }, s.prototype.prepareNextSource = function() {
+        this.previous = this._sources.shift(), this.openedSource(this.previous.streamInfo), this.isPaused ? this.previous.pause() : this.previous.resume();
+      }, s.prototype.registerPrevious = function(e2) {
+        this._sources.push(e2);
+        var t2 = this;
+        return e2.on("data", function(e3) {
+          t2.processChunk(e3);
+        }), e2.on("end", function() {
+          t2.closedSource(t2.previous.streamInfo), t2._sources.length ? t2.prepareNextSource() : t2.end();
+        }), e2.on("error", function(e3) {
+          t2.error(e3);
+        }), this;
+      }, s.prototype.resume = function() {
+        return !!i.prototype.resume.call(this) && (!this.previous && this._sources.length ? (this.prepareNextSource(), true) : this.previous || this._sources.length || this.generatedError ? void 0 : (this.end(), true));
+      }, s.prototype.error = function(e2) {
+        var t2 = this._sources;
+        if (!i.prototype.error.call(this, e2)) return false;
+        for (var r2 = 0; r2 < t2.length; r2++) try {
+          t2[r2].error(e2);
+        } catch (e3) {
+        }
+        return true;
+      }, s.prototype.lock = function() {
+        i.prototype.lock.call(this);
+        for (var e2 = this._sources, t2 = 0; t2 < e2.length; t2++) e2[t2].lock();
+      }, t.exports = s;
+    }, { "../crc32": 4, "../signature": 23, "../stream/GenericWorker": 28, "../utf8": 31, "../utils": 32 }], 9: [function(e, t, r) {
+      var u = e("../compressions"), n = e("./ZipFileWorker");
+      r.generateWorker = function(e2, a, t2) {
+        var o = new n(a.streamFiles, t2, a.platform, a.encodeFileName), h = 0;
+        try {
+          e2.forEach(function(e3, t3) {
+            h++;
+            var r2 = function(e4, t4) {
+              var r3 = e4 || t4, n3 = u[r3];
+              if (!n3) throw new Error(r3 + " is not a valid compression method !");
+              return n3;
+            }(t3.options.compression, a.compression), n2 = t3.options.compressionOptions || a.compressionOptions || {}, i = t3.dir, s = t3.date;
+            t3._compressWorker(r2, n2).withStreamInfo("file", { name: e3, dir: i, date: s, comment: t3.comment || "", unixPermissions: t3.unixPermissions, dosPermissions: t3.dosPermissions }).pipe(o);
+          }), o.entriesCount = h;
+        } catch (e3) {
+          o.error(e3);
+        }
+        return o;
+      };
+    }, { "../compressions": 3, "./ZipFileWorker": 8 }], 10: [function(e, t, r) {
+      function n() {
+        if (!(this instanceof n)) return new n();
+        if (arguments.length) throw new Error("The constructor with parameters has been removed in JSZip 3.0, please check the upgrade guide.");
+        this.files = /* @__PURE__ */ Object.create(null), this.comment = null, this.root = "", this.clone = function() {
+          var e2 = new n();
+          for (var t2 in this) "function" != typeof this[t2] && (e2[t2] = this[t2]);
+          return e2;
+        };
+      }
+      (n.prototype = e("./object")).loadAsync = e("./load"), n.support = e("./support"), n.defaults = e("./defaults"), n.version = "3.10.1", n.loadAsync = function(e2, t2) {
+        return new n().loadAsync(e2, t2);
+      }, n.external = e("./external"), t.exports = n;
+    }, { "./defaults": 5, "./external": 6, "./load": 11, "./object": 15, "./support": 30 }], 11: [function(e, t, r) {
+      var u = e("./utils"), i = e("./external"), n = e("./utf8"), s = e("./zipEntries"), a = e("./stream/Crc32Probe"), l = e("./nodejsUtils");
+      function f(n2) {
+        return new i.Promise(function(e2, t2) {
+          var r2 = n2.decompressed.getContentWorker().pipe(new a());
+          r2.on("error", function(e3) {
+            t2(e3);
+          }).on("end", function() {
+            r2.streamInfo.crc32 !== n2.decompressed.crc32 ? t2(new Error("Corrupted zip : CRC32 mismatch")) : e2();
+          }).resume();
+        });
+      }
+      t.exports = function(e2, o) {
+        var h = this;
+        return o = u.extend(o || {}, { base64: false, checkCRC32: false, optimizedBinaryString: false, createFolders: false, decodeFileName: n.utf8decode }), l.isNode && l.isStream(e2) ? i.Promise.reject(new Error("JSZip can't accept a stream when loading a zip file.")) : u.prepareContent("the loaded zip file", e2, true, o.optimizedBinaryString, o.base64).then(function(e3) {
+          var t2 = new s(o);
+          return t2.load(e3), t2;
+        }).then(function(e3) {
+          var t2 = [i.Promise.resolve(e3)], r2 = e3.files;
+          if (o.checkCRC32) for (var n2 = 0; n2 < r2.length; n2++) t2.push(f(r2[n2]));
+          return i.Promise.all(t2);
+        }).then(function(e3) {
+          for (var t2 = e3.shift(), r2 = t2.files, n2 = 0; n2 < r2.length; n2++) {
+            var i2 = r2[n2], s2 = i2.fileNameStr, a2 = u.resolve(i2.fileNameStr);
+            h.file(a2, i2.decompressed, { binary: true, optimizedBinaryString: true, date: i2.date, dir: i2.dir, comment: i2.fileCommentStr.length ? i2.fileCommentStr : null, unixPermissions: i2.unixPermissions, dosPermissions: i2.dosPermissions, createFolders: o.createFolders }), i2.dir || (h.file(a2).unsafeOriginalName = s2);
+          }
+          return t2.zipComment.length && (h.comment = t2.zipComment), h;
+        });
+      };
+    }, { "./external": 6, "./nodejsUtils": 14, "./stream/Crc32Probe": 25, "./utf8": 31, "./utils": 32, "./zipEntries": 33 }], 12: [function(e, t, r) {
+      var n = e("../utils"), i = e("../stream/GenericWorker");
+      function s(e2, t2) {
+        i.call(this, "Nodejs stream input adapter for " + e2), this._upstreamEnded = false, this._bindStream(t2);
+      }
+      n.inherits(s, i), s.prototype._bindStream = function(e2) {
+        var t2 = this;
+        (this._stream = e2).pause(), e2.on("data", function(e3) {
+          t2.push({ data: e3, meta: { percent: 0 } });
+        }).on("error", function(e3) {
+          t2.isPaused ? this.generatedError = e3 : t2.error(e3);
+        }).on("end", function() {
+          t2.isPaused ? t2._upstreamEnded = true : t2.end();
+        });
+      }, s.prototype.pause = function() {
+        return !!i.prototype.pause.call(this) && (this._stream.pause(), true);
+      }, s.prototype.resume = function() {
+        return !!i.prototype.resume.call(this) && (this._upstreamEnded ? this.end() : this._stream.resume(), true);
+      }, t.exports = s;
+    }, { "../stream/GenericWorker": 28, "../utils": 32 }], 13: [function(e, t, r) {
+      var i = e("readable-stream").Readable;
+      function n(e2, t2, r2) {
+        i.call(this, t2), this._helper = e2;
+        var n2 = this;
+        e2.on("data", function(e3, t3) {
+          n2.push(e3) || n2._helper.pause(), r2 && r2(t3);
+        }).on("error", function(e3) {
+          n2.emit("error", e3);
+        }).on("end", function() {
+          n2.push(null);
+        });
+      }
+      e("../utils").inherits(n, i), n.prototype._read = function() {
+        this._helper.resume();
+      }, t.exports = n;
+    }, { "../utils": 32, "readable-stream": 16 }], 14: [function(e, t, r) {
+      t.exports = { isNode: "undefined" != typeof Buffer, newBufferFrom: function(e2, t2) {
+        if (Buffer.from && Buffer.from !== Uint8Array.from) return Buffer.from(e2, t2);
+        if ("number" == typeof e2) throw new Error('The "data" argument must not be a number');
+        return new Buffer(e2, t2);
+      }, allocBuffer: function(e2) {
+        if (Buffer.alloc) return Buffer.alloc(e2);
+        var t2 = new Buffer(e2);
+        return t2.fill(0), t2;
+      }, isBuffer: function(e2) {
+        return Buffer.isBuffer(e2);
+      }, isStream: function(e2) {
+        return e2 && "function" == typeof e2.on && "function" == typeof e2.pause && "function" == typeof e2.resume;
+      } };
+    }, {}], 15: [function(e, t, r) {
+      function s(e2, t2, r2) {
+        var n2, i2 = u.getTypeOf(t2), s2 = u.extend(r2 || {}, f);
+        s2.date = s2.date || /* @__PURE__ */ new Date(), null !== s2.compression && (s2.compression = s2.compression.toUpperCase()), "string" == typeof s2.unixPermissions && (s2.unixPermissions = parseInt(s2.unixPermissions, 8)), s2.unixPermissions && 16384 & s2.unixPermissions && (s2.dir = true), s2.dosPermissions && 16 & s2.dosPermissions && (s2.dir = true), s2.dir && (e2 = g(e2)), s2.createFolders && (n2 = _(e2)) && b.call(this, n2, true);
+        var a2 = "string" === i2 && false === s2.binary && false === s2.base64;
+        r2 && void 0 !== r2.binary || (s2.binary = !a2), (t2 instanceof c && 0 === t2.uncompressedSize || s2.dir || !t2 || 0 === t2.length) && (s2.base64 = false, s2.binary = true, t2 = "", s2.compression = "STORE", i2 = "string");
+        var o2 = null;
+        o2 = t2 instanceof c || t2 instanceof l ? t2 : p.isNode && p.isStream(t2) ? new m(e2, t2) : u.prepareContent(e2, t2, s2.binary, s2.optimizedBinaryString, s2.base64);
+        var h2 = new d(e2, o2, s2);
+        this.files[e2] = h2;
+      }
+      var i = e("./utf8"), u = e("./utils"), l = e("./stream/GenericWorker"), a = e("./stream/StreamHelper"), f = e("./defaults"), c = e("./compressedObject"), d = e("./zipObject"), o = e("./generate"), p = e("./nodejsUtils"), m = e("./nodejs/NodejsStreamInputAdapter"), _ = function(e2) {
+        "/" === e2.slice(-1) && (e2 = e2.substring(0, e2.length - 1));
+        var t2 = e2.lastIndexOf("/");
+        return 0 < t2 ? e2.substring(0, t2) : "";
+      }, g = function(e2) {
+        return "/" !== e2.slice(-1) && (e2 += "/"), e2;
+      }, b = function(e2, t2) {
+        return t2 = void 0 !== t2 ? t2 : f.createFolders, e2 = g(e2), this.files[e2] || s.call(this, e2, null, { dir: true, createFolders: t2 }), this.files[e2];
+      };
+      function h(e2) {
+        return "[object RegExp]" === Object.prototype.toString.call(e2);
+      }
+      var n = { load: function() {
+        throw new Error("This method has been removed in JSZip 3.0, please check the upgrade guide.");
+      }, forEach: function(e2) {
+        var t2, r2, n2;
+        for (t2 in this.files) n2 = this.files[t2], (r2 = t2.slice(this.root.length, t2.length)) && t2.slice(0, this.root.length) === this.root && e2(r2, n2);
+      }, filter: function(r2) {
+        var n2 = [];
+        return this.forEach(function(e2, t2) {
+          r2(e2, t2) && n2.push(t2);
+        }), n2;
+      }, file: function(e2, t2, r2) {
+        if (1 !== arguments.length) return e2 = this.root + e2, s.call(this, e2, t2, r2), this;
+        if (h(e2)) {
+          var n2 = e2;
+          return this.filter(function(e3, t3) {
+            return !t3.dir && n2.test(e3);
+          });
+        }
+        var i2 = this.files[this.root + e2];
+        return i2 && !i2.dir ? i2 : null;
+      }, folder: function(r2) {
+        if (!r2) return this;
+        if (h(r2)) return this.filter(function(e3, t3) {
+          return t3.dir && r2.test(e3);
+        });
+        var e2 = this.root + r2, t2 = b.call(this, e2), n2 = this.clone();
+        return n2.root = t2.name, n2;
+      }, remove: function(r2) {
+        r2 = this.root + r2;
+        var e2 = this.files[r2];
+        if (e2 || ("/" !== r2.slice(-1) && (r2 += "/"), e2 = this.files[r2]), e2 && !e2.dir) delete this.files[r2];
+        else for (var t2 = this.filter(function(e3, t3) {
+          return t3.name.slice(0, r2.length) === r2;
+        }), n2 = 0; n2 < t2.length; n2++) delete this.files[t2[n2].name];
+        return this;
+      }, generate: function() {
+        throw new Error("This method has been removed in JSZip 3.0, please check the upgrade guide.");
+      }, generateInternalStream: function(e2) {
+        var t2, r2 = {};
+        try {
+          if ((r2 = u.extend(e2 || {}, { streamFiles: false, compression: "STORE", compressionOptions: null, type: "", platform: "DOS", comment: null, mimeType: "application/zip", encodeFileName: i.utf8encode })).type = r2.type.toLowerCase(), r2.compression = r2.compression.toUpperCase(), "binarystring" === r2.type && (r2.type = "string"), !r2.type) throw new Error("No output type specified.");
+          u.checkSupport(r2.type), "darwin" !== r2.platform && "freebsd" !== r2.platform && "linux" !== r2.platform && "sunos" !== r2.platform || (r2.platform = "UNIX"), "win32" === r2.platform && (r2.platform = "DOS");
+          var n2 = r2.comment || this.comment || "";
+          t2 = o.generateWorker(this, r2, n2);
+        } catch (e3) {
+          (t2 = new l("error")).error(e3);
+        }
+        return new a(t2, r2.type || "string", r2.mimeType);
+      }, generateAsync: function(e2, t2) {
+        return this.generateInternalStream(e2).accumulate(t2);
+      }, generateNodeStream: function(e2, t2) {
+        return (e2 = e2 || {}).type || (e2.type = "nodebuffer"), this.generateInternalStream(e2).toNodejsStream(t2);
+      } };
+      t.exports = n;
+    }, { "./compressedObject": 2, "./defaults": 5, "./generate": 9, "./nodejs/NodejsStreamInputAdapter": 12, "./nodejsUtils": 14, "./stream/GenericWorker": 28, "./stream/StreamHelper": 29, "./utf8": 31, "./utils": 32, "./zipObject": 35 }], 16: [function(e, t, r) {
+      t.exports = e("stream");
+    }, { stream: void 0 }], 17: [function(e, t, r) {
+      var n = e("./DataReader");
+      function i(e2) {
+        n.call(this, e2);
+        for (var t2 = 0; t2 < this.data.length; t2++) e2[t2] = 255 & e2[t2];
+      }
+      e("../utils").inherits(i, n), i.prototype.byteAt = function(e2) {
+        return this.data[this.zero + e2];
+      }, i.prototype.lastIndexOfSignature = function(e2) {
+        for (var t2 = e2.charCodeAt(0), r2 = e2.charCodeAt(1), n2 = e2.charCodeAt(2), i2 = e2.charCodeAt(3), s = this.length - 4; 0 <= s; --s) if (this.data[s] === t2 && this.data[s + 1] === r2 && this.data[s + 2] === n2 && this.data[s + 3] === i2) return s - this.zero;
+        return -1;
+      }, i.prototype.readAndCheckSignature = function(e2) {
+        var t2 = e2.charCodeAt(0), r2 = e2.charCodeAt(1), n2 = e2.charCodeAt(2), i2 = e2.charCodeAt(3), s = this.readData(4);
+        return t2 === s[0] && r2 === s[1] && n2 === s[2] && i2 === s[3];
+      }, i.prototype.readData = function(e2) {
+        if (this.checkOffset(e2), 0 === e2) return [];
+        var t2 = this.data.slice(this.zero + this.index, this.zero + this.index + e2);
+        return this.index += e2, t2;
+      }, t.exports = i;
+    }, { "../utils": 32, "./DataReader": 18 }], 18: [function(e, t, r) {
+      var n = e("../utils");
+      function i(e2) {
+        this.data = e2, this.length = e2.length, this.index = 0, this.zero = 0;
+      }
+      i.prototype = { checkOffset: function(e2) {
+        this.checkIndex(this.index + e2);
+      }, checkIndex: function(e2) {
+        if (this.length < this.zero + e2 || e2 < 0) throw new Error("End of data reached (data length = " + this.length + ", asked index = " + e2 + "). Corrupted zip ?");
+      }, setIndex: function(e2) {
+        this.checkIndex(e2), this.index = e2;
+      }, skip: function(e2) {
+        this.setIndex(this.index + e2);
+      }, byteAt: function() {
+      }, readInt: function(e2) {
+        var t2, r2 = 0;
+        for (this.checkOffset(e2), t2 = this.index + e2 - 1; t2 >= this.index; t2--) r2 = (r2 << 8) + this.byteAt(t2);
+        return this.index += e2, r2;
+      }, readString: function(e2) {
+        return n.transformTo("string", this.readData(e2));
+      }, readData: function() {
+      }, lastIndexOfSignature: function() {
+      }, readAndCheckSignature: function() {
+      }, readDate: function() {
+        var e2 = this.readInt(4);
+        return new Date(Date.UTC(1980 + (e2 >> 25 & 127), (e2 >> 21 & 15) - 1, e2 >> 16 & 31, e2 >> 11 & 31, e2 >> 5 & 63, (31 & e2) << 1));
+      } }, t.exports = i;
+    }, { "../utils": 32 }], 19: [function(e, t, r) {
+      var n = e("./Uint8ArrayReader");
+      function i(e2) {
+        n.call(this, e2);
+      }
+      e("../utils").inherits(i, n), i.prototype.readData = function(e2) {
+        this.checkOffset(e2);
+        var t2 = this.data.slice(this.zero + this.index, this.zero + this.index + e2);
+        return this.index += e2, t2;
+      }, t.exports = i;
+    }, { "../utils": 32, "./Uint8ArrayReader": 21 }], 20: [function(e, t, r) {
+      var n = e("./DataReader");
+      function i(e2) {
+        n.call(this, e2);
+      }
+      e("../utils").inherits(i, n), i.prototype.byteAt = function(e2) {
+        return this.data.charCodeAt(this.zero + e2);
+      }, i.prototype.lastIndexOfSignature = function(e2) {
+        return this.data.lastIndexOf(e2) - this.zero;
+      }, i.prototype.readAndCheckSignature = function(e2) {
+        return e2 === this.readData(4);
+      }, i.prototype.readData = function(e2) {
+        this.checkOffset(e2);
+        var t2 = this.data.slice(this.zero + this.index, this.zero + this.index + e2);
+        return this.index += e2, t2;
+      }, t.exports = i;
+    }, { "../utils": 32, "./DataReader": 18 }], 21: [function(e, t, r) {
+      var n = e("./ArrayReader");
+      function i(e2) {
+        n.call(this, e2);
+      }
+      e("../utils").inherits(i, n), i.prototype.readData = function(e2) {
+        if (this.checkOffset(e2), 0 === e2) return new Uint8Array(0);
+        var t2 = this.data.subarray(this.zero + this.index, this.zero + this.index + e2);
+        return this.index += e2, t2;
+      }, t.exports = i;
+    }, { "../utils": 32, "./ArrayReader": 17 }], 22: [function(e, t, r) {
+      var n = e("../utils"), i = e("../support"), s = e("./ArrayReader"), a = e("./StringReader"), o = e("./NodeBufferReader"), h = e("./Uint8ArrayReader");
+      t.exports = function(e2) {
+        var t2 = n.getTypeOf(e2);
+        return n.checkSupport(t2), "string" !== t2 || i.uint8array ? "nodebuffer" === t2 ? new o(e2) : i.uint8array ? new h(n.transformTo("uint8array", e2)) : new s(n.transformTo("array", e2)) : new a(e2);
+      };
+    }, { "../support": 30, "../utils": 32, "./ArrayReader": 17, "./NodeBufferReader": 19, "./StringReader": 20, "./Uint8ArrayReader": 21 }], 23: [function(e, t, r) {
+      r.LOCAL_FILE_HEADER = "PK", r.CENTRAL_FILE_HEADER = "PK", r.CENTRAL_DIRECTORY_END = "PK", r.ZIP64_CENTRAL_DIRECTORY_LOCATOR = "PK\x07", r.ZIP64_CENTRAL_DIRECTORY_END = "PK", r.DATA_DESCRIPTOR = "PK\x07\b";
+    }, {}], 24: [function(e, t, r) {
+      var n = e("./GenericWorker"), i = e("../utils");
+      function s(e2) {
+        n.call(this, "ConvertWorker to " + e2), this.destType = e2;
+      }
+      i.inherits(s, n), s.prototype.processChunk = function(e2) {
+        this.push({ data: i.transformTo(this.destType, e2.data), meta: e2.meta });
+      }, t.exports = s;
+    }, { "../utils": 32, "./GenericWorker": 28 }], 25: [function(e, t, r) {
+      var n = e("./GenericWorker"), i = e("../crc32");
+      function s() {
+        n.call(this, "Crc32Probe"), this.withStreamInfo("crc32", 0);
+      }
+      e("../utils").inherits(s, n), s.prototype.processChunk = function(e2) {
+        this.streamInfo.crc32 = i(e2.data, this.streamInfo.crc32 || 0), this.push(e2);
+      }, t.exports = s;
+    }, { "../crc32": 4, "../utils": 32, "./GenericWorker": 28 }], 26: [function(e, t, r) {
+      var n = e("../utils"), i = e("./GenericWorker");
+      function s(e2) {
+        i.call(this, "DataLengthProbe for " + e2), this.propName = e2, this.withStreamInfo(e2, 0);
+      }
+      n.inherits(s, i), s.prototype.processChunk = function(e2) {
+        if (e2) {
+          var t2 = this.streamInfo[this.propName] || 0;
+          this.streamInfo[this.propName] = t2 + e2.data.length;
+        }
+        i.prototype.processChunk.call(this, e2);
+      }, t.exports = s;
+    }, { "../utils": 32, "./GenericWorker": 28 }], 27: [function(e, t, r) {
+      var n = e("../utils"), i = e("./GenericWorker");
+      function s(e2) {
+        i.call(this, "DataWorker");
+        var t2 = this;
+        this.dataIsReady = false, this.index = 0, this.max = 0, this.data = null, this.type = "", this._tickScheduled = false, e2.then(function(e3) {
+          t2.dataIsReady = true, t2.data = e3, t2.max = e3 && e3.length || 0, t2.type = n.getTypeOf(e3), t2.isPaused || t2._tickAndRepeat();
+        }, function(e3) {
+          t2.error(e3);
+        });
+      }
+      n.inherits(s, i), s.prototype.cleanUp = function() {
+        i.prototype.cleanUp.call(this), this.data = null;
+      }, s.prototype.resume = function() {
+        return !!i.prototype.resume.call(this) && (!this._tickScheduled && this.dataIsReady && (this._tickScheduled = true, n.delay(this._tickAndRepeat, [], this)), true);
+      }, s.prototype._tickAndRepeat = function() {
+        this._tickScheduled = false, this.isPaused || this.isFinished || (this._tick(), this.isFinished || (n.delay(this._tickAndRepeat, [], this), this._tickScheduled = true));
+      }, s.prototype._tick = function() {
+        if (this.isPaused || this.isFinished) return false;
+        var e2 = null, t2 = Math.min(this.max, this.index + 16384);
+        if (this.index >= this.max) return this.end();
+        switch (this.type) {
+          case "string":
+            e2 = this.data.substring(this.index, t2);
+            break;
+          case "uint8array":
+            e2 = this.data.subarray(this.index, t2);
+            break;
+          case "array":
+          case "nodebuffer":
+            e2 = this.data.slice(this.index, t2);
+        }
+        return this.index = t2, this.push({ data: e2, meta: { percent: this.max ? this.index / this.max * 100 : 0 } });
+      }, t.exports = s;
+    }, { "../utils": 32, "./GenericWorker": 28 }], 28: [function(e, t, r) {
+      function n(e2) {
+        this.name = e2 || "default", this.streamInfo = {}, this.generatedError = null, this.extraStreamInfo = {}, this.isPaused = true, this.isFinished = false, this.isLocked = false, this._listeners = { data: [], end: [], error: [] }, this.previous = null;
+      }
+      n.prototype = { push: function(e2) {
+        this.emit("data", e2);
+      }, end: function() {
+        if (this.isFinished) return false;
+        this.flush();
+        try {
+          this.emit("end"), this.cleanUp(), this.isFinished = true;
+        } catch (e2) {
+          this.emit("error", e2);
+        }
+        return true;
+      }, error: function(e2) {
+        return !this.isFinished && (this.isPaused ? this.generatedError = e2 : (this.isFinished = true, this.emit("error", e2), this.previous && this.previous.error(e2), this.cleanUp()), true);
+      }, on: function(e2, t2) {
+        return this._listeners[e2].push(t2), this;
+      }, cleanUp: function() {
+        this.streamInfo = this.generatedError = this.extraStreamInfo = null, this._listeners = [];
+      }, emit: function(e2, t2) {
+        if (this._listeners[e2]) for (var r2 = 0; r2 < this._listeners[e2].length; r2++) this._listeners[e2][r2].call(this, t2);
+      }, pipe: function(e2) {
+        return e2.registerPrevious(this);
+      }, registerPrevious: function(e2) {
+        if (this.isLocked) throw new Error("The stream '" + this + "' has already been used.");
+        this.streamInfo = e2.streamInfo, this.mergeStreamInfo(), this.previous = e2;
+        var t2 = this;
+        return e2.on("data", function(e3) {
+          t2.processChunk(e3);
+        }), e2.on("end", function() {
+          t2.end();
+        }), e2.on("error", function(e3) {
+          t2.error(e3);
+        }), this;
+      }, pause: function() {
+        return !this.isPaused && !this.isFinished && (this.isPaused = true, this.previous && this.previous.pause(), true);
+      }, resume: function() {
+        if (!this.isPaused || this.isFinished) return false;
+        var e2 = this.isPaused = false;
+        return this.generatedError && (this.error(this.generatedError), e2 = true), this.previous && this.previous.resume(), !e2;
+      }, flush: function() {
+      }, processChunk: function(e2) {
+        this.push(e2);
+      }, withStreamInfo: function(e2, t2) {
+        return this.extraStreamInfo[e2] = t2, this.mergeStreamInfo(), this;
+      }, mergeStreamInfo: function() {
+        for (var e2 in this.extraStreamInfo) Object.prototype.hasOwnProperty.call(this.extraStreamInfo, e2) && (this.streamInfo[e2] = this.extraStreamInfo[e2]);
+      }, lock: function() {
+        if (this.isLocked) throw new Error("The stream '" + this + "' has already been used.");
+        this.isLocked = true, this.previous && this.previous.lock();
+      }, toString: function() {
+        var e2 = "Worker " + this.name;
+        return this.previous ? this.previous + " -> " + e2 : e2;
+      } }, t.exports = n;
+    }, {}], 29: [function(e, t, r) {
+      var h = e("../utils"), i = e("./ConvertWorker"), s = e("./GenericWorker"), u = e("../base64"), n = e("../support"), a = e("../external"), o = null;
+      if (n.nodestream) try {
+        o = e("../nodejs/NodejsStreamOutputAdapter");
+      } catch (e2) {
+      }
+      function l(e2, o2) {
+        return new a.Promise(function(t2, r2) {
+          var n2 = [], i2 = e2._internalType, s2 = e2._outputType, a2 = e2._mimeType;
+          e2.on("data", function(e3, t3) {
+            n2.push(e3), o2 && o2(t3);
+          }).on("error", function(e3) {
+            n2 = [], r2(e3);
+          }).on("end", function() {
+            try {
+              var e3 = function(e4, t3, r3) {
+                switch (e4) {
+                  case "blob":
+                    return h.newBlob(h.transformTo("arraybuffer", t3), r3);
+                  case "base64":
+                    return u.encode(t3);
+                  default:
+                    return h.transformTo(e4, t3);
+                }
+              }(s2, function(e4, t3) {
+                var r3, n3 = 0, i3 = null, s3 = 0;
+                for (r3 = 0; r3 < t3.length; r3++) s3 += t3[r3].length;
+                switch (e4) {
+                  case "string":
+                    return t3.join("");
+                  case "array":
+                    return Array.prototype.concat.apply([], t3);
+                  case "uint8array":
+                    for (i3 = new Uint8Array(s3), r3 = 0; r3 < t3.length; r3++) i3.set(t3[r3], n3), n3 += t3[r3].length;
+                    return i3;
+                  case "nodebuffer":
+                    return Buffer.concat(t3);
+                  default:
+                    throw new Error("concat : unsupported type '" + e4 + "'");
+                }
+              }(i2, n2), a2);
+              t2(e3);
+            } catch (e4) {
+              r2(e4);
+            }
+            n2 = [];
+          }).resume();
+        });
+      }
+      function f(e2, t2, r2) {
+        var n2 = t2;
+        switch (t2) {
+          case "blob":
+          case "arraybuffer":
+            n2 = "uint8array";
+            break;
+          case "base64":
+            n2 = "string";
+        }
+        try {
+          this._internalType = n2, this._outputType = t2, this._mimeType = r2, h.checkSupport(n2), this._worker = e2.pipe(new i(n2)), e2.lock();
+        } catch (e3) {
+          this._worker = new s("error"), this._worker.error(e3);
+        }
+      }
+      f.prototype = { accumulate: function(e2) {
+        return l(this, e2);
+      }, on: function(e2, t2) {
+        var r2 = this;
+        return "data" === e2 ? this._worker.on(e2, function(e3) {
+          t2.call(r2, e3.data, e3.meta);
+        }) : this._worker.on(e2, function() {
+          h.delay(t2, arguments, r2);
+        }), this;
+      }, resume: function() {
+        return h.delay(this._worker.resume, [], this._worker), this;
+      }, pause: function() {
+        return this._worker.pause(), this;
+      }, toNodejsStream: function(e2) {
+        if (h.checkSupport("nodestream"), "nodebuffer" !== this._outputType) throw new Error(this._outputType + " is not supported by this method");
+        return new o(this, { objectMode: "nodebuffer" !== this._outputType }, e2);
+      } }, t.exports = f;
+    }, { "../base64": 1, "../external": 6, "../nodejs/NodejsStreamOutputAdapter": 13, "../support": 30, "../utils": 32, "./ConvertWorker": 24, "./GenericWorker": 28 }], 30: [function(e, t, r) {
+      if (r.base64 = true, r.array = true, r.string = true, r.arraybuffer = "undefined" != typeof ArrayBuffer && "undefined" != typeof Uint8Array, r.nodebuffer = "undefined" != typeof Buffer, r.uint8array = "undefined" != typeof Uint8Array, "undefined" == typeof ArrayBuffer) r.blob = false;
+      else {
+        var n = new ArrayBuffer(0);
+        try {
+          r.blob = 0 === new Blob([n], { type: "application/zip" }).size;
+        } catch (e2) {
+          try {
+            var i = new (self.BlobBuilder || self.WebKitBlobBuilder || self.MozBlobBuilder || self.MSBlobBuilder)();
+            i.append(n), r.blob = 0 === i.getBlob("application/zip").size;
+          } catch (e3) {
+            r.blob = false;
+          }
+        }
+      }
+      try {
+        r.nodestream = !!e("readable-stream").Readable;
+      } catch (e2) {
+        r.nodestream = false;
+      }
+    }, { "readable-stream": 16 }], 31: [function(e, t, s) {
+      for (var o = e("./utils"), h = e("./support"), r = e("./nodejsUtils"), n = e("./stream/GenericWorker"), u = new Array(256), i = 0; i < 256; i++) u[i] = 252 <= i ? 6 : 248 <= i ? 5 : 240 <= i ? 4 : 224 <= i ? 3 : 192 <= i ? 2 : 1;
+      u[254] = u[254] = 1;
+      function a() {
+        n.call(this, "utf-8 decode"), this.leftOver = null;
+      }
+      function l() {
+        n.call(this, "utf-8 encode");
+      }
+      s.utf8encode = function(e2) {
+        return h.nodebuffer ? r.newBufferFrom(e2, "utf-8") : function(e3) {
+          var t2, r2, n2, i2, s2, a2 = e3.length, o2 = 0;
+          for (i2 = 0; i2 < a2; i2++) 55296 == (64512 & (r2 = e3.charCodeAt(i2))) && i2 + 1 < a2 && 56320 == (64512 & (n2 = e3.charCodeAt(i2 + 1))) && (r2 = 65536 + (r2 - 55296 << 10) + (n2 - 56320), i2++), o2 += r2 < 128 ? 1 : r2 < 2048 ? 2 : r2 < 65536 ? 3 : 4;
+          for (t2 = h.uint8array ? new Uint8Array(o2) : new Array(o2), i2 = s2 = 0; s2 < o2; i2++) 55296 == (64512 & (r2 = e3.charCodeAt(i2))) && i2 + 1 < a2 && 56320 == (64512 & (n2 = e3.charCodeAt(i2 + 1))) && (r2 = 65536 + (r2 - 55296 << 10) + (n2 - 56320), i2++), r2 < 128 ? t2[s2++] = r2 : (r2 < 2048 ? t2[s2++] = 192 | r2 >>> 6 : (r2 < 65536 ? t2[s2++] = 224 | r2 >>> 12 : (t2[s2++] = 240 | r2 >>> 18, t2[s2++] = 128 | r2 >>> 12 & 63), t2[s2++] = 128 | r2 >>> 6 & 63), t2[s2++] = 128 | 63 & r2);
+          return t2;
+        }(e2);
+      }, s.utf8decode = function(e2) {
+        return h.nodebuffer ? o.transformTo("nodebuffer", e2).toString("utf-8") : function(e3) {
+          var t2, r2, n2, i2, s2 = e3.length, a2 = new Array(2 * s2);
+          for (t2 = r2 = 0; t2 < s2; ) if ((n2 = e3[t2++]) < 128) a2[r2++] = n2;
+          else if (4 < (i2 = u[n2])) a2[r2++] = 65533, t2 += i2 - 1;
+          else {
+            for (n2 &= 2 === i2 ? 31 : 3 === i2 ? 15 : 7; 1 < i2 && t2 < s2; ) n2 = n2 << 6 | 63 & e3[t2++], i2--;
+            1 < i2 ? a2[r2++] = 65533 : n2 < 65536 ? a2[r2++] = n2 : (n2 -= 65536, a2[r2++] = 55296 | n2 >> 10 & 1023, a2[r2++] = 56320 | 1023 & n2);
+          }
+          return a2.length !== r2 && (a2.subarray ? a2 = a2.subarray(0, r2) : a2.length = r2), o.applyFromCharCode(a2);
+        }(e2 = o.transformTo(h.uint8array ? "uint8array" : "array", e2));
+      }, o.inherits(a, n), a.prototype.processChunk = function(e2) {
+        var t2 = o.transformTo(h.uint8array ? "uint8array" : "array", e2.data);
+        if (this.leftOver && this.leftOver.length) {
+          if (h.uint8array) {
+            var r2 = t2;
+            (t2 = new Uint8Array(r2.length + this.leftOver.length)).set(this.leftOver, 0), t2.set(r2, this.leftOver.length);
+          } else t2 = this.leftOver.concat(t2);
+          this.leftOver = null;
+        }
+        var n2 = function(e3, t3) {
+          var r3;
+          for ((t3 = t3 || e3.length) > e3.length && (t3 = e3.length), r3 = t3 - 1; 0 <= r3 && 128 == (192 & e3[r3]); ) r3--;
+          return r3 < 0 ? t3 : 0 === r3 ? t3 : r3 + u[e3[r3]] > t3 ? r3 : t3;
+        }(t2), i2 = t2;
+        n2 !== t2.length && (h.uint8array ? (i2 = t2.subarray(0, n2), this.leftOver = t2.subarray(n2, t2.length)) : (i2 = t2.slice(0, n2), this.leftOver = t2.slice(n2, t2.length))), this.push({ data: s.utf8decode(i2), meta: e2.meta });
+      }, a.prototype.flush = function() {
+        this.leftOver && this.leftOver.length && (this.push({ data: s.utf8decode(this.leftOver), meta: {} }), this.leftOver = null);
+      }, s.Utf8DecodeWorker = a, o.inherits(l, n), l.prototype.processChunk = function(e2) {
+        this.push({ data: s.utf8encode(e2.data), meta: e2.meta });
+      }, s.Utf8EncodeWorker = l;
+    }, { "./nodejsUtils": 14, "./stream/GenericWorker": 28, "./support": 30, "./utils": 32 }], 32: [function(e, t, a) {
+      var o = e("./support"), h = e("./base64"), r = e("./nodejsUtils"), u = e("./external");
+      function n(e2) {
+        return e2;
+      }
+      function l(e2, t2) {
+        for (var r2 = 0; r2 < e2.length; ++r2) t2[r2] = 255 & e2.charCodeAt(r2);
+        return t2;
+      }
+      e("setimmediate"), a.newBlob = function(t2, r2) {
+        a.checkSupport("blob");
+        try {
+          return new Blob([t2], { type: r2 });
+        } catch (e2) {
+          try {
+            var n2 = new (self.BlobBuilder || self.WebKitBlobBuilder || self.MozBlobBuilder || self.MSBlobBuilder)();
+            return n2.append(t2), n2.getBlob(r2);
+          } catch (e3) {
+            throw new Error("Bug : can't construct the Blob.");
+          }
+        }
+      };
+      var i = { stringifyByChunk: function(e2, t2, r2) {
+        var n2 = [], i2 = 0, s2 = e2.length;
+        if (s2 <= r2) return String.fromCharCode.apply(null, e2);
+        for (; i2 < s2; ) "array" === t2 || "nodebuffer" === t2 ? n2.push(String.fromCharCode.apply(null, e2.slice(i2, Math.min(i2 + r2, s2)))) : n2.push(String.fromCharCode.apply(null, e2.subarray(i2, Math.min(i2 + r2, s2)))), i2 += r2;
+        return n2.join("");
+      }, stringifyByChar: function(e2) {
+        for (var t2 = "", r2 = 0; r2 < e2.length; r2++) t2 += String.fromCharCode(e2[r2]);
+        return t2;
+      }, applyCanBeUsed: { uint8array: function() {
+        try {
+          return o.uint8array && 1 === String.fromCharCode.apply(null, new Uint8Array(1)).length;
+        } catch (e2) {
+          return false;
+        }
+      }(), nodebuffer: function() {
+        try {
+          return o.nodebuffer && 1 === String.fromCharCode.apply(null, r.allocBuffer(1)).length;
+        } catch (e2) {
+          return false;
+        }
+      }() } };
+      function s(e2) {
+        var t2 = 65536, r2 = a.getTypeOf(e2), n2 = true;
+        if ("uint8array" === r2 ? n2 = i.applyCanBeUsed.uint8array : "nodebuffer" === r2 && (n2 = i.applyCanBeUsed.nodebuffer), n2) for (; 1 < t2; ) try {
+          return i.stringifyByChunk(e2, r2, t2);
+        } catch (e3) {
+          t2 = Math.floor(t2 / 2);
+        }
+        return i.stringifyByChar(e2);
+      }
+      function f(e2, t2) {
+        for (var r2 = 0; r2 < e2.length; r2++) t2[r2] = e2[r2];
+        return t2;
+      }
+      a.applyFromCharCode = s;
+      var c = {};
+      c.string = { string: n, array: function(e2) {
+        return l(e2, new Array(e2.length));
+      }, arraybuffer: function(e2) {
+        return c.string.uint8array(e2).buffer;
+      }, uint8array: function(e2) {
+        return l(e2, new Uint8Array(e2.length));
+      }, nodebuffer: function(e2) {
+        return l(e2, r.allocBuffer(e2.length));
+      } }, c.array = { string: s, array: n, arraybuffer: function(e2) {
+        return new Uint8Array(e2).buffer;
+      }, uint8array: function(e2) {
+        return new Uint8Array(e2);
+      }, nodebuffer: function(e2) {
+        return r.newBufferFrom(e2);
+      } }, c.arraybuffer = { string: function(e2) {
+        return s(new Uint8Array(e2));
+      }, array: function(e2) {
+        return f(new Uint8Array(e2), new Array(e2.byteLength));
+      }, arraybuffer: n, uint8array: function(e2) {
+        return new Uint8Array(e2);
+      }, nodebuffer: function(e2) {
+        return r.newBufferFrom(new Uint8Array(e2));
+      } }, c.uint8array = { string: s, array: function(e2) {
+        return f(e2, new Array(e2.length));
+      }, arraybuffer: function(e2) {
+        return e2.buffer;
+      }, uint8array: n, nodebuffer: function(e2) {
+        return r.newBufferFrom(e2);
+      } }, c.nodebuffer = { string: s, array: function(e2) {
+        return f(e2, new Array(e2.length));
+      }, arraybuffer: function(e2) {
+        return c.nodebuffer.uint8array(e2).buffer;
+      }, uint8array: function(e2) {
+        return f(e2, new Uint8Array(e2.length));
+      }, nodebuffer: n }, a.transformTo = function(e2, t2) {
+        if (t2 = t2 || "", !e2) return t2;
+        a.checkSupport(e2);
+        var r2 = a.getTypeOf(t2);
+        return c[r2][e2](t2);
+      }, a.resolve = function(e2) {
+        for (var t2 = e2.split("/"), r2 = [], n2 = 0; n2 < t2.length; n2++) {
+          var i2 = t2[n2];
+          "." === i2 || "" === i2 && 0 !== n2 && n2 !== t2.length - 1 || (".." === i2 ? r2.pop() : r2.push(i2));
+        }
+        return r2.join("/");
+      }, a.getTypeOf = function(e2) {
+        return "string" == typeof e2 ? "string" : "[object Array]" === Object.prototype.toString.call(e2) ? "array" : o.nodebuffer && r.isBuffer(e2) ? "nodebuffer" : o.uint8array && e2 instanceof Uint8Array ? "uint8array" : o.arraybuffer && e2 instanceof ArrayBuffer ? "arraybuffer" : void 0;
+      }, a.checkSupport = function(e2) {
+        if (!o[e2.toLowerCase()]) throw new Error(e2 + " is not supported by this platform");
+      }, a.MAX_VALUE_16BITS = 65535, a.MAX_VALUE_32BITS = -1, a.pretty = function(e2) {
+        var t2, r2, n2 = "";
+        for (r2 = 0; r2 < (e2 || "").length; r2++) n2 += "\\x" + ((t2 = e2.charCodeAt(r2)) < 16 ? "0" : "") + t2.toString(16).toUpperCase();
+        return n2;
+      }, a.delay = function(e2, t2, r2) {
+        setImmediate(function() {
+          e2.apply(r2 || null, t2 || []);
+        });
+      }, a.inherits = function(e2, t2) {
+        function r2() {
+        }
+        r2.prototype = t2.prototype, e2.prototype = new r2();
+      }, a.extend = function() {
+        var e2, t2, r2 = {};
+        for (e2 = 0; e2 < arguments.length; e2++) for (t2 in arguments[e2]) Object.prototype.hasOwnProperty.call(arguments[e2], t2) && void 0 === r2[t2] && (r2[t2] = arguments[e2][t2]);
+        return r2;
+      }, a.prepareContent = function(r2, e2, n2, i2, s2) {
+        return u.Promise.resolve(e2).then(function(n3) {
+          return o.blob && (n3 instanceof Blob || -1 !== ["[object File]", "[object Blob]"].indexOf(Object.prototype.toString.call(n3))) && "undefined" != typeof FileReader ? new u.Promise(function(t2, r3) {
+            var e3 = new FileReader();
+            e3.onload = function(e4) {
+              t2(e4.target.result);
+            }, e3.onerror = function(e4) {
+              r3(e4.target.error);
+            }, e3.readAsArrayBuffer(n3);
+          }) : n3;
+        }).then(function(e3) {
+          var t2 = a.getTypeOf(e3);
+          return t2 ? ("arraybuffer" === t2 ? e3 = a.transformTo("uint8array", e3) : "string" === t2 && (s2 ? e3 = h.decode(e3) : n2 && true !== i2 && (e3 = function(e4) {
+            return l(e4, o.uint8array ? new Uint8Array(e4.length) : new Array(e4.length));
+          }(e3))), e3) : u.Promise.reject(new Error("Can't read the data of '" + r2 + "'. Is it in a supported JavaScript type (String, Blob, ArrayBuffer, etc) ?"));
+        });
+      };
+    }, { "./base64": 1, "./external": 6, "./nodejsUtils": 14, "./support": 30, setimmediate: 54 }], 33: [function(e, t, r) {
+      var n = e("./reader/readerFor"), i = e("./utils"), s = e("./signature"), a = e("./zipEntry"), o = e("./support");
+      function h(e2) {
+        this.files = [], this.loadOptions = e2;
+      }
+      h.prototype = { checkSignature: function(e2) {
+        if (!this.reader.readAndCheckSignature(e2)) {
+          this.reader.index -= 4;
+          var t2 = this.reader.readString(4);
+          throw new Error("Corrupted zip or bug: unexpected signature (" + i.pretty(t2) + ", expected " + i.pretty(e2) + ")");
+        }
+      }, isSignature: function(e2, t2) {
+        var r2 = this.reader.index;
+        this.reader.setIndex(e2);
+        var n2 = this.reader.readString(4) === t2;
+        return this.reader.setIndex(r2), n2;
+      }, readBlockEndOfCentral: function() {
+        this.diskNumber = this.reader.readInt(2), this.diskWithCentralDirStart = this.reader.readInt(2), this.centralDirRecordsOnThisDisk = this.reader.readInt(2), this.centralDirRecords = this.reader.readInt(2), this.centralDirSize = this.reader.readInt(4), this.centralDirOffset = this.reader.readInt(4), this.zipCommentLength = this.reader.readInt(2);
+        var e2 = this.reader.readData(this.zipCommentLength), t2 = o.uint8array ? "uint8array" : "array", r2 = i.transformTo(t2, e2);
+        this.zipComment = this.loadOptions.decodeFileName(r2);
+      }, readBlockZip64EndOfCentral: function() {
+        this.zip64EndOfCentralSize = this.reader.readInt(8), this.reader.skip(4), this.diskNumber = this.reader.readInt(4), this.diskWithCentralDirStart = this.reader.readInt(4), this.centralDirRecordsOnThisDisk = this.reader.readInt(8), this.centralDirRecords = this.reader.readInt(8), this.centralDirSize = this.reader.readInt(8), this.centralDirOffset = this.reader.readInt(8), this.zip64ExtensibleData = {};
+        for (var e2, t2, r2, n2 = this.zip64EndOfCentralSize - 44; 0 < n2; ) e2 = this.reader.readInt(2), t2 = this.reader.readInt(4), r2 = this.reader.readData(t2), this.zip64ExtensibleData[e2] = { id: e2, length: t2, value: r2 };
+      }, readBlockZip64EndOfCentralLocator: function() {
+        if (this.diskWithZip64CentralDirStart = this.reader.readInt(4), this.relativeOffsetEndOfZip64CentralDir = this.reader.readInt(8), this.disksCount = this.reader.readInt(4), 1 < this.disksCount) throw new Error("Multi-volumes zip are not supported");
+      }, readLocalFiles: function() {
+        var e2, t2;
+        for (e2 = 0; e2 < this.files.length; e2++) t2 = this.files[e2], this.reader.setIndex(t2.localHeaderOffset), this.checkSignature(s.LOCAL_FILE_HEADER), t2.readLocalPart(this.reader), t2.handleUTF8(), t2.processAttributes();
+      }, readCentralDir: function() {
+        var e2;
+        for (this.reader.setIndex(this.centralDirOffset); this.reader.readAndCheckSignature(s.CENTRAL_FILE_HEADER); ) (e2 = new a({ zip64: this.zip64 }, this.loadOptions)).readCentralPart(this.reader), this.files.push(e2);
+        if (this.centralDirRecords !== this.files.length && 0 !== this.centralDirRecords && 0 === this.files.length) throw new Error("Corrupted zip or bug: expected " + this.centralDirRecords + " records in central dir, got " + this.files.length);
+      }, readEndOfCentral: function() {
+        var e2 = this.reader.lastIndexOfSignature(s.CENTRAL_DIRECTORY_END);
+        if (e2 < 0) throw !this.isSignature(0, s.LOCAL_FILE_HEADER) ? new Error("Can't find end of central directory : is this a zip file ? If it is, see https://stuk.github.io/jszip/documentation/howto/read_zip.html") : new Error("Corrupted zip: can't find end of central directory");
+        this.reader.setIndex(e2);
+        var t2 = e2;
+        if (this.checkSignature(s.CENTRAL_DIRECTORY_END), this.readBlockEndOfCentral(), this.diskNumber === i.MAX_VALUE_16BITS || this.diskWithCentralDirStart === i.MAX_VALUE_16BITS || this.centralDirRecordsOnThisDisk === i.MAX_VALUE_16BITS || this.centralDirRecords === i.MAX_VALUE_16BITS || this.centralDirSize === i.MAX_VALUE_32BITS || this.centralDirOffset === i.MAX_VALUE_32BITS) {
+          if (this.zip64 = true, (e2 = this.reader.lastIndexOfSignature(s.ZIP64_CENTRAL_DIRECTORY_LOCATOR)) < 0) throw new Error("Corrupted zip: can't find the ZIP64 end of central directory locator");
+          if (this.reader.setIndex(e2), this.checkSignature(s.ZIP64_CENTRAL_DIRECTORY_LOCATOR), this.readBlockZip64EndOfCentralLocator(), !this.isSignature(this.relativeOffsetEndOfZip64CentralDir, s.ZIP64_CENTRAL_DIRECTORY_END) && (this.relativeOffsetEndOfZip64CentralDir = this.reader.lastIndexOfSignature(s.ZIP64_CENTRAL_DIRECTORY_END), this.relativeOffsetEndOfZip64CentralDir < 0)) throw new Error("Corrupted zip: can't find the ZIP64 end of central directory");
+          this.reader.setIndex(this.relativeOffsetEndOfZip64CentralDir), this.checkSignature(s.ZIP64_CENTRAL_DIRECTORY_END), this.readBlockZip64EndOfCentral();
+        }
+        var r2 = this.centralDirOffset + this.centralDirSize;
+        this.zip64 && (r2 += 20, r2 += 12 + this.zip64EndOfCentralSize);
+        var n2 = t2 - r2;
+        if (0 < n2) this.isSignature(t2, s.CENTRAL_FILE_HEADER) || (this.reader.zero = n2);
+        else if (n2 < 0) throw new Error("Corrupted zip: missing " + Math.abs(n2) + " bytes.");
+      }, prepareReader: function(e2) {
+        this.reader = n(e2);
+      }, load: function(e2) {
+        this.prepareReader(e2), this.readEndOfCentral(), this.readCentralDir(), this.readLocalFiles();
+      } }, t.exports = h;
+    }, { "./reader/readerFor": 22, "./signature": 23, "./support": 30, "./utils": 32, "./zipEntry": 34 }], 34: [function(e, t, r) {
+      var n = e("./reader/readerFor"), s = e("./utils"), i = e("./compressedObject"), a = e("./crc32"), o = e("./utf8"), h = e("./compressions"), u = e("./support");
+      function l(e2, t2) {
+        this.options = e2, this.loadOptions = t2;
+      }
+      l.prototype = { isEncrypted: function() {
+        return 1 == (1 & this.bitFlag);
+      }, useUTF8: function() {
+        return 2048 == (2048 & this.bitFlag);
+      }, readLocalPart: function(e2) {
+        var t2, r2;
+        if (e2.skip(22), this.fileNameLength = e2.readInt(2), r2 = e2.readInt(2), this.fileName = e2.readData(this.fileNameLength), e2.skip(r2), -1 === this.compressedSize || -1 === this.uncompressedSize) throw new Error("Bug or corrupted zip : didn't get enough information from the central directory (compressedSize === -1 || uncompressedSize === -1)");
+        if (null === (t2 = function(e3) {
+          for (var t3 in h) if (Object.prototype.hasOwnProperty.call(h, t3) && h[t3].magic === e3) return h[t3];
+          return null;
+        }(this.compressionMethod))) throw new Error("Corrupted zip : compression " + s.pretty(this.compressionMethod) + " unknown (inner file : " + s.transformTo("string", this.fileName) + ")");
+        this.decompressed = new i(this.compressedSize, this.uncompressedSize, this.crc32, t2, e2.readData(this.compressedSize));
+      }, readCentralPart: function(e2) {
+        this.versionMadeBy = e2.readInt(2), e2.skip(2), this.bitFlag = e2.readInt(2), this.compressionMethod = e2.readString(2), this.date = e2.readDate(), this.crc32 = e2.readInt(4), this.compressedSize = e2.readInt(4), this.uncompressedSize = e2.readInt(4);
+        var t2 = e2.readInt(2);
+        if (this.extraFieldsLength = e2.readInt(2), this.fileCommentLength = e2.readInt(2), this.diskNumberStart = e2.readInt(2), this.internalFileAttributes = e2.readInt(2), this.externalFileAttributes = e2.readInt(4), this.localHeaderOffset = e2.readInt(4), this.isEncrypted()) throw new Error("Encrypted zip are not supported");
+        e2.skip(t2), this.readExtraFields(e2), this.parseZIP64ExtraField(e2), this.fileComment = e2.readData(this.fileCommentLength);
+      }, processAttributes: function() {
+        this.unixPermissions = null, this.dosPermissions = null;
+        var e2 = this.versionMadeBy >> 8;
+        this.dir = !!(16 & this.externalFileAttributes), 0 == e2 && (this.dosPermissions = 63 & this.externalFileAttributes), 3 == e2 && (this.unixPermissions = this.externalFileAttributes >> 16 & 65535), this.dir || "/" !== this.fileNameStr.slice(-1) || (this.dir = true);
+      }, parseZIP64ExtraField: function() {
+        if (this.extraFields[1]) {
+          var e2 = n(this.extraFields[1].value);
+          this.uncompressedSize === s.MAX_VALUE_32BITS && (this.uncompressedSize = e2.readInt(8)), this.compressedSize === s.MAX_VALUE_32BITS && (this.compressedSize = e2.readInt(8)), this.localHeaderOffset === s.MAX_VALUE_32BITS && (this.localHeaderOffset = e2.readInt(8)), this.diskNumberStart === s.MAX_VALUE_32BITS && (this.diskNumberStart = e2.readInt(4));
+        }
+      }, readExtraFields: function(e2) {
+        var t2, r2, n2, i2 = e2.index + this.extraFieldsLength;
+        for (this.extraFields || (this.extraFields = {}); e2.index + 4 < i2; ) t2 = e2.readInt(2), r2 = e2.readInt(2), n2 = e2.readData(r2), this.extraFields[t2] = { id: t2, length: r2, value: n2 };
+        e2.setIndex(i2);
+      }, handleUTF8: function() {
+        var e2 = u.uint8array ? "uint8array" : "array";
+        if (this.useUTF8()) this.fileNameStr = o.utf8decode(this.fileName), this.fileCommentStr = o.utf8decode(this.fileComment);
+        else {
+          var t2 = this.findExtraFieldUnicodePath();
+          if (null !== t2) this.fileNameStr = t2;
+          else {
+            var r2 = s.transformTo(e2, this.fileName);
+            this.fileNameStr = this.loadOptions.decodeFileName(r2);
+          }
+          var n2 = this.findExtraFieldUnicodeComment();
+          if (null !== n2) this.fileCommentStr = n2;
+          else {
+            var i2 = s.transformTo(e2, this.fileComment);
+            this.fileCommentStr = this.loadOptions.decodeFileName(i2);
+          }
+        }
+      }, findExtraFieldUnicodePath: function() {
+        var e2 = this.extraFields[28789];
+        if (e2) {
+          var t2 = n(e2.value);
+          return 1 !== t2.readInt(1) ? null : a(this.fileName) !== t2.readInt(4) ? null : o.utf8decode(t2.readData(e2.length - 5));
+        }
+        return null;
+      }, findExtraFieldUnicodeComment: function() {
+        var e2 = this.extraFields[25461];
+        if (e2) {
+          var t2 = n(e2.value);
+          return 1 !== t2.readInt(1) ? null : a(this.fileComment) !== t2.readInt(4) ? null : o.utf8decode(t2.readData(e2.length - 5));
+        }
+        return null;
+      } }, t.exports = l;
+    }, { "./compressedObject": 2, "./compressions": 3, "./crc32": 4, "./reader/readerFor": 22, "./support": 30, "./utf8": 31, "./utils": 32 }], 35: [function(e, t, r) {
+      function n(e2, t2, r2) {
+        this.name = e2, this.dir = r2.dir, this.date = r2.date, this.comment = r2.comment, this.unixPermissions = r2.unixPermissions, this.dosPermissions = r2.dosPermissions, this._data = t2, this._dataBinary = r2.binary, this.options = { compression: r2.compression, compressionOptions: r2.compressionOptions };
+      }
+      var s = e("./stream/StreamHelper"), i = e("./stream/DataWorker"), a = e("./utf8"), o = e("./compressedObject"), h = e("./stream/GenericWorker");
+      n.prototype = { internalStream: function(e2) {
+        var t2 = null, r2 = "string";
+        try {
+          if (!e2) throw new Error("No output type specified.");
+          var n2 = "string" === (r2 = e2.toLowerCase()) || "text" === r2;
+          "binarystring" !== r2 && "text" !== r2 || (r2 = "string"), t2 = this._decompressWorker();
+          var i2 = !this._dataBinary;
+          i2 && !n2 && (t2 = t2.pipe(new a.Utf8EncodeWorker())), !i2 && n2 && (t2 = t2.pipe(new a.Utf8DecodeWorker()));
+        } catch (e3) {
+          (t2 = new h("error")).error(e3);
+        }
+        return new s(t2, r2, "");
+      }, async: function(e2, t2) {
+        return this.internalStream(e2).accumulate(t2);
+      }, nodeStream: function(e2, t2) {
+        return this.internalStream(e2 || "nodebuffer").toNodejsStream(t2);
+      }, _compressWorker: function(e2, t2) {
+        if (this._data instanceof o && this._data.compression.magic === e2.magic) return this._data.getCompressedWorker();
+        var r2 = this._decompressWorker();
+        return this._dataBinary || (r2 = r2.pipe(new a.Utf8EncodeWorker())), o.createWorkerFrom(r2, e2, t2);
+      }, _decompressWorker: function() {
+        return this._data instanceof o ? this._data.getContentWorker() : this._data instanceof h ? this._data : new i(this._data);
+      } };
+      for (var u = ["asText", "asBinary", "asNodeBuffer", "asUint8Array", "asArrayBuffer"], l = function() {
+        throw new Error("This method has been removed in JSZip 3.0, please check the upgrade guide.");
+      }, f = 0; f < u.length; f++) n.prototype[u[f]] = l;
+      t.exports = n;
+    }, { "./compressedObject": 2, "./stream/DataWorker": 27, "./stream/GenericWorker": 28, "./stream/StreamHelper": 29, "./utf8": 31 }], 36: [function(e, l, t) {
+      (function(t2) {
+        var r, n, e2 = t2.MutationObserver || t2.WebKitMutationObserver;
+        if (e2) {
+          var i = 0, s = new e2(u), a = t2.document.createTextNode("");
+          s.observe(a, { characterData: true }), r = function() {
+            a.data = i = ++i % 2;
+          };
+        } else if (t2.setImmediate || void 0 === t2.MessageChannel) r = "document" in t2 && "onreadystatechange" in t2.document.createElement("script") ? function() {
+          var e3 = t2.document.createElement("script");
+          e3.onreadystatechange = function() {
+            u(), e3.onreadystatechange = null, e3.parentNode.removeChild(e3), e3 = null;
+          }, t2.document.documentElement.appendChild(e3);
+        } : function() {
+          setTimeout(u, 0);
+        };
+        else {
+          var o = new t2.MessageChannel();
+          o.port1.onmessage = u, r = function() {
+            o.port2.postMessage(0);
+          };
+        }
+        var h = [];
+        function u() {
+          var e3, t3;
+          n = true;
+          for (var r2 = h.length; r2; ) {
+            for (t3 = h, h = [], e3 = -1; ++e3 < r2; ) t3[e3]();
+            r2 = h.length;
+          }
+          n = false;
+        }
+        l.exports = function(e3) {
+          1 !== h.push(e3) || n || r();
+        };
+      }).call(this, "undefined" != typeof commonjsGlobal ? commonjsGlobal : "undefined" != typeof self ? self : "undefined" != typeof window ? window : {});
+    }, {}], 37: [function(e, t, r) {
+      var i = e("immediate");
+      function u() {
+      }
+      var l = {}, s = ["REJECTED"], a = ["FULFILLED"], n = ["PENDING"];
+      function o(e2) {
+        if ("function" != typeof e2) throw new TypeError("resolver must be a function");
+        this.state = n, this.queue = [], this.outcome = void 0, e2 !== u && d(this, e2);
+      }
+      function h(e2, t2, r2) {
+        this.promise = e2, "function" == typeof t2 && (this.onFulfilled = t2, this.callFulfilled = this.otherCallFulfilled), "function" == typeof r2 && (this.onRejected = r2, this.callRejected = this.otherCallRejected);
+      }
+      function f(t2, r2, n2) {
+        i(function() {
+          var e2;
+          try {
+            e2 = r2(n2);
+          } catch (e3) {
+            return l.reject(t2, e3);
+          }
+          e2 === t2 ? l.reject(t2, new TypeError("Cannot resolve promise with itself")) : l.resolve(t2, e2);
+        });
+      }
+      function c(e2) {
+        var t2 = e2 && e2.then;
+        if (e2 && ("object" == typeof e2 || "function" == typeof e2) && "function" == typeof t2) return function() {
+          t2.apply(e2, arguments);
+        };
+      }
+      function d(t2, e2) {
+        var r2 = false;
+        function n2(e3) {
+          r2 || (r2 = true, l.reject(t2, e3));
+        }
+        function i2(e3) {
+          r2 || (r2 = true, l.resolve(t2, e3));
+        }
+        var s2 = p(function() {
+          e2(i2, n2);
+        });
+        "error" === s2.status && n2(s2.value);
+      }
+      function p(e2, t2) {
+        var r2 = {};
+        try {
+          r2.value = e2(t2), r2.status = "success";
+        } catch (e3) {
+          r2.status = "error", r2.value = e3;
+        }
+        return r2;
+      }
+      (t.exports = o).prototype.finally = function(t2) {
+        if ("function" != typeof t2) return this;
+        var r2 = this.constructor;
+        return this.then(function(e2) {
+          return r2.resolve(t2()).then(function() {
+            return e2;
+          });
+        }, function(e2) {
+          return r2.resolve(t2()).then(function() {
+            throw e2;
+          });
+        });
+      }, o.prototype.catch = function(e2) {
+        return this.then(null, e2);
+      }, o.prototype.then = function(e2, t2) {
+        if ("function" != typeof e2 && this.state === a || "function" != typeof t2 && this.state === s) return this;
+        var r2 = new this.constructor(u);
+        this.state !== n ? f(r2, this.state === a ? e2 : t2, this.outcome) : this.queue.push(new h(r2, e2, t2));
+        return r2;
+      }, h.prototype.callFulfilled = function(e2) {
+        l.resolve(this.promise, e2);
+      }, h.prototype.otherCallFulfilled = function(e2) {
+        f(this.promise, this.onFulfilled, e2);
+      }, h.prototype.callRejected = function(e2) {
+        l.reject(this.promise, e2);
+      }, h.prototype.otherCallRejected = function(e2) {
+        f(this.promise, this.onRejected, e2);
+      }, l.resolve = function(e2, t2) {
+        var r2 = p(c, t2);
+        if ("error" === r2.status) return l.reject(e2, r2.value);
+        var n2 = r2.value;
+        if (n2) d(e2, n2);
+        else {
+          e2.state = a, e2.outcome = t2;
+          for (var i2 = -1, s2 = e2.queue.length; ++i2 < s2; ) e2.queue[i2].callFulfilled(t2);
+        }
+        return e2;
+      }, l.reject = function(e2, t2) {
+        e2.state = s, e2.outcome = t2;
+        for (var r2 = -1, n2 = e2.queue.length; ++r2 < n2; ) e2.queue[r2].callRejected(t2);
+        return e2;
+      }, o.resolve = function(e2) {
+        if (e2 instanceof this) return e2;
+        return l.resolve(new this(u), e2);
+      }, o.reject = function(e2) {
+        var t2 = new this(u);
+        return l.reject(t2, e2);
+      }, o.all = function(e2) {
+        var r2 = this;
+        if ("[object Array]" !== Object.prototype.toString.call(e2)) return this.reject(new TypeError("must be an array"));
+        var n2 = e2.length, i2 = false;
+        if (!n2) return this.resolve([]);
+        var s2 = new Array(n2), a2 = 0, t2 = -1, o2 = new this(u);
+        for (; ++t2 < n2; ) h2(e2[t2], t2);
+        return o2;
+        function h2(e3, t3) {
+          r2.resolve(e3).then(function(e4) {
+            s2[t3] = e4, ++a2 !== n2 || i2 || (i2 = true, l.resolve(o2, s2));
+          }, function(e4) {
+            i2 || (i2 = true, l.reject(o2, e4));
+          });
+        }
+      }, o.race = function(e2) {
+        var t2 = this;
+        if ("[object Array]" !== Object.prototype.toString.call(e2)) return this.reject(new TypeError("must be an array"));
+        var r2 = e2.length, n2 = false;
+        if (!r2) return this.resolve([]);
+        var i2 = -1, s2 = new this(u);
+        for (; ++i2 < r2; ) a2 = e2[i2], t2.resolve(a2).then(function(e3) {
+          n2 || (n2 = true, l.resolve(s2, e3));
+        }, function(e3) {
+          n2 || (n2 = true, l.reject(s2, e3));
+        });
+        var a2;
+        return s2;
+      };
+    }, { immediate: 36 }], 38: [function(e, t, r) {
+      var n = {};
+      (0, e("./lib/utils/common").assign)(n, e("./lib/deflate"), e("./lib/inflate"), e("./lib/zlib/constants")), t.exports = n;
+    }, { "./lib/deflate": 39, "./lib/inflate": 40, "./lib/utils/common": 41, "./lib/zlib/constants": 44 }], 39: [function(e, t, r) {
+      var a = e("./zlib/deflate"), o = e("./utils/common"), h = e("./utils/strings"), i = e("./zlib/messages"), s = e("./zlib/zstream"), u = Object.prototype.toString, l = 0, f = -1, c = 0, d = 8;
+      function p(e2) {
+        if (!(this instanceof p)) return new p(e2);
+        this.options = o.assign({ level: f, method: d, chunkSize: 16384, windowBits: 15, memLevel: 8, strategy: c, to: "" }, e2 || {});
+        var t2 = this.options;
+        t2.raw && 0 < t2.windowBits ? t2.windowBits = -t2.windowBits : t2.gzip && 0 < t2.windowBits && t2.windowBits < 16 && (t2.windowBits += 16), this.err = 0, this.msg = "", this.ended = false, this.chunks = [], this.strm = new s(), this.strm.avail_out = 0;
+        var r2 = a.deflateInit2(this.strm, t2.level, t2.method, t2.windowBits, t2.memLevel, t2.strategy);
+        if (r2 !== l) throw new Error(i[r2]);
+        if (t2.header && a.deflateSetHeader(this.strm, t2.header), t2.dictionary) {
+          var n2;
+          if (n2 = "string" == typeof t2.dictionary ? h.string2buf(t2.dictionary) : "[object ArrayBuffer]" === u.call(t2.dictionary) ? new Uint8Array(t2.dictionary) : t2.dictionary, (r2 = a.deflateSetDictionary(this.strm, n2)) !== l) throw new Error(i[r2]);
+          this._dict_set = true;
+        }
+      }
+      function n(e2, t2) {
+        var r2 = new p(t2);
+        if (r2.push(e2, true), r2.err) throw r2.msg || i[r2.err];
+        return r2.result;
+      }
+      p.prototype.push = function(e2, t2) {
+        var r2, n2, i2 = this.strm, s2 = this.options.chunkSize;
+        if (this.ended) return false;
+        n2 = t2 === ~~t2 ? t2 : true === t2 ? 4 : 0, "string" == typeof e2 ? i2.input = h.string2buf(e2) : "[object ArrayBuffer]" === u.call(e2) ? i2.input = new Uint8Array(e2) : i2.input = e2, i2.next_in = 0, i2.avail_in = i2.input.length;
+        do {
+          if (0 === i2.avail_out && (i2.output = new o.Buf8(s2), i2.next_out = 0, i2.avail_out = s2), 1 !== (r2 = a.deflate(i2, n2)) && r2 !== l) return this.onEnd(r2), !(this.ended = true);
+          0 !== i2.avail_out && (0 !== i2.avail_in || 4 !== n2 && 2 !== n2) || ("string" === this.options.to ? this.onData(h.buf2binstring(o.shrinkBuf(i2.output, i2.next_out))) : this.onData(o.shrinkBuf(i2.output, i2.next_out)));
+        } while ((0 < i2.avail_in || 0 === i2.avail_out) && 1 !== r2);
+        return 4 === n2 ? (r2 = a.deflateEnd(this.strm), this.onEnd(r2), this.ended = true, r2 === l) : 2 !== n2 || (this.onEnd(l), !(i2.avail_out = 0));
+      }, p.prototype.onData = function(e2) {
+        this.chunks.push(e2);
+      }, p.prototype.onEnd = function(e2) {
+        e2 === l && ("string" === this.options.to ? this.result = this.chunks.join("") : this.result = o.flattenChunks(this.chunks)), this.chunks = [], this.err = e2, this.msg = this.strm.msg;
+      }, r.Deflate = p, r.deflate = n, r.deflateRaw = function(e2, t2) {
+        return (t2 = t2 || {}).raw = true, n(e2, t2);
+      }, r.gzip = function(e2, t2) {
+        return (t2 = t2 || {}).gzip = true, n(e2, t2);
+      };
+    }, { "./utils/common": 41, "./utils/strings": 42, "./zlib/deflate": 46, "./zlib/messages": 51, "./zlib/zstream": 53 }], 40: [function(e, t, r) {
+      var c = e("./zlib/inflate"), d = e("./utils/common"), p = e("./utils/strings"), m = e("./zlib/constants"), n = e("./zlib/messages"), i = e("./zlib/zstream"), s = e("./zlib/gzheader"), _ = Object.prototype.toString;
+      function a(e2) {
+        if (!(this instanceof a)) return new a(e2);
+        this.options = d.assign({ chunkSize: 16384, windowBits: 0, to: "" }, e2 || {});
+        var t2 = this.options;
+        t2.raw && 0 <= t2.windowBits && t2.windowBits < 16 && (t2.windowBits = -t2.windowBits, 0 === t2.windowBits && (t2.windowBits = -15)), !(0 <= t2.windowBits && t2.windowBits < 16) || e2 && e2.windowBits || (t2.windowBits += 32), 15 < t2.windowBits && t2.windowBits < 48 && 0 == (15 & t2.windowBits) && (t2.windowBits |= 15), this.err = 0, this.msg = "", this.ended = false, this.chunks = [], this.strm = new i(), this.strm.avail_out = 0;
+        var r2 = c.inflateInit2(this.strm, t2.windowBits);
+        if (r2 !== m.Z_OK) throw new Error(n[r2]);
+        this.header = new s(), c.inflateGetHeader(this.strm, this.header);
+      }
+      function o(e2, t2) {
+        var r2 = new a(t2);
+        if (r2.push(e2, true), r2.err) throw r2.msg || n[r2.err];
+        return r2.result;
+      }
+      a.prototype.push = function(e2, t2) {
+        var r2, n2, i2, s2, a2, o2, h = this.strm, u = this.options.chunkSize, l = this.options.dictionary, f = false;
+        if (this.ended) return false;
+        n2 = t2 === ~~t2 ? t2 : true === t2 ? m.Z_FINISH : m.Z_NO_FLUSH, "string" == typeof e2 ? h.input = p.binstring2buf(e2) : "[object ArrayBuffer]" === _.call(e2) ? h.input = new Uint8Array(e2) : h.input = e2, h.next_in = 0, h.avail_in = h.input.length;
+        do {
+          if (0 === h.avail_out && (h.output = new d.Buf8(u), h.next_out = 0, h.avail_out = u), (r2 = c.inflate(h, m.Z_NO_FLUSH)) === m.Z_NEED_DICT && l && (o2 = "string" == typeof l ? p.string2buf(l) : "[object ArrayBuffer]" === _.call(l) ? new Uint8Array(l) : l, r2 = c.inflateSetDictionary(this.strm, o2)), r2 === m.Z_BUF_ERROR && true === f && (r2 = m.Z_OK, f = false), r2 !== m.Z_STREAM_END && r2 !== m.Z_OK) return this.onEnd(r2), !(this.ended = true);
+          h.next_out && (0 !== h.avail_out && r2 !== m.Z_STREAM_END && (0 !== h.avail_in || n2 !== m.Z_FINISH && n2 !== m.Z_SYNC_FLUSH) || ("string" === this.options.to ? (i2 = p.utf8border(h.output, h.next_out), s2 = h.next_out - i2, a2 = p.buf2string(h.output, i2), h.next_out = s2, h.avail_out = u - s2, s2 && d.arraySet(h.output, h.output, i2, s2, 0), this.onData(a2)) : this.onData(d.shrinkBuf(h.output, h.next_out)))), 0 === h.avail_in && 0 === h.avail_out && (f = true);
+        } while ((0 < h.avail_in || 0 === h.avail_out) && r2 !== m.Z_STREAM_END);
+        return r2 === m.Z_STREAM_END && (n2 = m.Z_FINISH), n2 === m.Z_FINISH ? (r2 = c.inflateEnd(this.strm), this.onEnd(r2), this.ended = true, r2 === m.Z_OK) : n2 !== m.Z_SYNC_FLUSH || (this.onEnd(m.Z_OK), !(h.avail_out = 0));
+      }, a.prototype.onData = function(e2) {
+        this.chunks.push(e2);
+      }, a.prototype.onEnd = function(e2) {
+        e2 === m.Z_OK && ("string" === this.options.to ? this.result = this.chunks.join("") : this.result = d.flattenChunks(this.chunks)), this.chunks = [], this.err = e2, this.msg = this.strm.msg;
+      }, r.Inflate = a, r.inflate = o, r.inflateRaw = function(e2, t2) {
+        return (t2 = t2 || {}).raw = true, o(e2, t2);
+      }, r.ungzip = o;
+    }, { "./utils/common": 41, "./utils/strings": 42, "./zlib/constants": 44, "./zlib/gzheader": 47, "./zlib/inflate": 49, "./zlib/messages": 51, "./zlib/zstream": 53 }], 41: [function(e, t, r) {
+      var n = "undefined" != typeof Uint8Array && "undefined" != typeof Uint16Array && "undefined" != typeof Int32Array;
+      r.assign = function(e2) {
+        for (var t2 = Array.prototype.slice.call(arguments, 1); t2.length; ) {
+          var r2 = t2.shift();
+          if (r2) {
+            if ("object" != typeof r2) throw new TypeError(r2 + "must be non-object");
+            for (var n2 in r2) r2.hasOwnProperty(n2) && (e2[n2] = r2[n2]);
+          }
+        }
+        return e2;
+      }, r.shrinkBuf = function(e2, t2) {
+        return e2.length === t2 ? e2 : e2.subarray ? e2.subarray(0, t2) : (e2.length = t2, e2);
+      };
+      var i = { arraySet: function(e2, t2, r2, n2, i2) {
+        if (t2.subarray && e2.subarray) e2.set(t2.subarray(r2, r2 + n2), i2);
+        else for (var s2 = 0; s2 < n2; s2++) e2[i2 + s2] = t2[r2 + s2];
+      }, flattenChunks: function(e2) {
+        var t2, r2, n2, i2, s2, a;
+        for (t2 = n2 = 0, r2 = e2.length; t2 < r2; t2++) n2 += e2[t2].length;
+        for (a = new Uint8Array(n2), t2 = i2 = 0, r2 = e2.length; t2 < r2; t2++) s2 = e2[t2], a.set(s2, i2), i2 += s2.length;
+        return a;
+      } }, s = { arraySet: function(e2, t2, r2, n2, i2) {
+        for (var s2 = 0; s2 < n2; s2++) e2[i2 + s2] = t2[r2 + s2];
+      }, flattenChunks: function(e2) {
+        return [].concat.apply([], e2);
+      } };
+      r.setTyped = function(e2) {
+        e2 ? (r.Buf8 = Uint8Array, r.Buf16 = Uint16Array, r.Buf32 = Int32Array, r.assign(r, i)) : (r.Buf8 = Array, r.Buf16 = Array, r.Buf32 = Array, r.assign(r, s));
+      }, r.setTyped(n);
+    }, {}], 42: [function(e, t, r) {
+      var h = e("./common"), i = true, s = true;
+      try {
+        String.fromCharCode.apply(null, [0]);
+      } catch (e2) {
+        i = false;
+      }
+      try {
+        String.fromCharCode.apply(null, new Uint8Array(1));
+      } catch (e2) {
+        s = false;
+      }
+      for (var u = new h.Buf8(256), n = 0; n < 256; n++) u[n] = 252 <= n ? 6 : 248 <= n ? 5 : 240 <= n ? 4 : 224 <= n ? 3 : 192 <= n ? 2 : 1;
+      function l(e2, t2) {
+        if (t2 < 65537 && (e2.subarray && s || !e2.subarray && i)) return String.fromCharCode.apply(null, h.shrinkBuf(e2, t2));
+        for (var r2 = "", n2 = 0; n2 < t2; n2++) r2 += String.fromCharCode(e2[n2]);
+        return r2;
+      }
+      u[254] = u[254] = 1, r.string2buf = function(e2) {
+        var t2, r2, n2, i2, s2, a = e2.length, o = 0;
+        for (i2 = 0; i2 < a; i2++) 55296 == (64512 & (r2 = e2.charCodeAt(i2))) && i2 + 1 < a && 56320 == (64512 & (n2 = e2.charCodeAt(i2 + 1))) && (r2 = 65536 + (r2 - 55296 << 10) + (n2 - 56320), i2++), o += r2 < 128 ? 1 : r2 < 2048 ? 2 : r2 < 65536 ? 3 : 4;
+        for (t2 = new h.Buf8(o), i2 = s2 = 0; s2 < o; i2++) 55296 == (64512 & (r2 = e2.charCodeAt(i2))) && i2 + 1 < a && 56320 == (64512 & (n2 = e2.charCodeAt(i2 + 1))) && (r2 = 65536 + (r2 - 55296 << 10) + (n2 - 56320), i2++), r2 < 128 ? t2[s2++] = r2 : (r2 < 2048 ? t2[s2++] = 192 | r2 >>> 6 : (r2 < 65536 ? t2[s2++] = 224 | r2 >>> 12 : (t2[s2++] = 240 | r2 >>> 18, t2[s2++] = 128 | r2 >>> 12 & 63), t2[s2++] = 128 | r2 >>> 6 & 63), t2[s2++] = 128 | 63 & r2);
+        return t2;
+      }, r.buf2binstring = function(e2) {
+        return l(e2, e2.length);
+      }, r.binstring2buf = function(e2) {
+        for (var t2 = new h.Buf8(e2.length), r2 = 0, n2 = t2.length; r2 < n2; r2++) t2[r2] = e2.charCodeAt(r2);
+        return t2;
+      }, r.buf2string = function(e2, t2) {
+        var r2, n2, i2, s2, a = t2 || e2.length, o = new Array(2 * a);
+        for (r2 = n2 = 0; r2 < a; ) if ((i2 = e2[r2++]) < 128) o[n2++] = i2;
+        else if (4 < (s2 = u[i2])) o[n2++] = 65533, r2 += s2 - 1;
+        else {
+          for (i2 &= 2 === s2 ? 31 : 3 === s2 ? 15 : 7; 1 < s2 && r2 < a; ) i2 = i2 << 6 | 63 & e2[r2++], s2--;
+          1 < s2 ? o[n2++] = 65533 : i2 < 65536 ? o[n2++] = i2 : (i2 -= 65536, o[n2++] = 55296 | i2 >> 10 & 1023, o[n2++] = 56320 | 1023 & i2);
+        }
+        return l(o, n2);
+      }, r.utf8border = function(e2, t2) {
+        var r2;
+        for ((t2 = t2 || e2.length) > e2.length && (t2 = e2.length), r2 = t2 - 1; 0 <= r2 && 128 == (192 & e2[r2]); ) r2--;
+        return r2 < 0 ? t2 : 0 === r2 ? t2 : r2 + u[e2[r2]] > t2 ? r2 : t2;
+      };
+    }, { "./common": 41 }], 43: [function(e, t, r) {
+      t.exports = function(e2, t2, r2, n) {
+        for (var i = 65535 & e2 | 0, s = e2 >>> 16 & 65535 | 0, a = 0; 0 !== r2; ) {
+          for (r2 -= a = 2e3 < r2 ? 2e3 : r2; s = s + (i = i + t2[n++] | 0) | 0, --a; ) ;
+          i %= 65521, s %= 65521;
+        }
+        return i | s << 16 | 0;
+      };
+    }, {}], 44: [function(e, t, r) {
+      t.exports = { Z_NO_FLUSH: 0, Z_PARTIAL_FLUSH: 1, Z_SYNC_FLUSH: 2, Z_FULL_FLUSH: 3, Z_FINISH: 4, Z_BLOCK: 5, Z_TREES: 6, Z_OK: 0, Z_STREAM_END: 1, Z_NEED_DICT: 2, Z_ERRNO: -1, Z_STREAM_ERROR: -2, Z_DATA_ERROR: -3, Z_BUF_ERROR: -5, Z_NO_COMPRESSION: 0, Z_BEST_SPEED: 1, Z_BEST_COMPRESSION: 9, Z_DEFAULT_COMPRESSION: -1, Z_FILTERED: 1, Z_HUFFMAN_ONLY: 2, Z_RLE: 3, Z_FIXED: 4, Z_DEFAULT_STRATEGY: 0, Z_BINARY: 0, Z_TEXT: 1, Z_UNKNOWN: 2, Z_DEFLATED: 8 };
+    }, {}], 45: [function(e, t, r) {
+      var o = function() {
+        for (var e2, t2 = [], r2 = 0; r2 < 256; r2++) {
+          e2 = r2;
+          for (var n = 0; n < 8; n++) e2 = 1 & e2 ? 3988292384 ^ e2 >>> 1 : e2 >>> 1;
+          t2[r2] = e2;
+        }
+        return t2;
+      }();
+      t.exports = function(e2, t2, r2, n) {
+        var i = o, s = n + r2;
+        e2 ^= -1;
+        for (var a = n; a < s; a++) e2 = e2 >>> 8 ^ i[255 & (e2 ^ t2[a])];
+        return -1 ^ e2;
+      };
+    }, {}], 46: [function(e, t, r) {
+      var h, c = e("../utils/common"), u = e("./trees"), d = e("./adler32"), p = e("./crc32"), n = e("./messages"), l = 0, f = 4, m = 0, _ = -2, g = -1, b = 4, i = 2, v = 8, y = 9, s = 286, a = 30, o = 19, w = 2 * s + 1, k = 15, x = 3, S = 258, z = S + x + 1, C = 42, E = 113, A = 1, I = 2, O = 3, B = 4;
+      function R(e2, t2) {
+        return e2.msg = n[t2], t2;
+      }
+      function T(e2) {
+        return (e2 << 1) - (4 < e2 ? 9 : 0);
+      }
+      function D(e2) {
+        for (var t2 = e2.length; 0 <= --t2; ) e2[t2] = 0;
+      }
+      function F(e2) {
+        var t2 = e2.state, r2 = t2.pending;
+        r2 > e2.avail_out && (r2 = e2.avail_out), 0 !== r2 && (c.arraySet(e2.output, t2.pending_buf, t2.pending_out, r2, e2.next_out), e2.next_out += r2, t2.pending_out += r2, e2.total_out += r2, e2.avail_out -= r2, t2.pending -= r2, 0 === t2.pending && (t2.pending_out = 0));
+      }
+      function N(e2, t2) {
+        u._tr_flush_block(e2, 0 <= e2.block_start ? e2.block_start : -1, e2.strstart - e2.block_start, t2), e2.block_start = e2.strstart, F(e2.strm);
+      }
+      function U(e2, t2) {
+        e2.pending_buf[e2.pending++] = t2;
+      }
+      function P(e2, t2) {
+        e2.pending_buf[e2.pending++] = t2 >>> 8 & 255, e2.pending_buf[e2.pending++] = 255 & t2;
+      }
+      function L(e2, t2) {
+        var r2, n2, i2 = e2.max_chain_length, s2 = e2.strstart, a2 = e2.prev_length, o2 = e2.nice_match, h2 = e2.strstart > e2.w_size - z ? e2.strstart - (e2.w_size - z) : 0, u2 = e2.window, l2 = e2.w_mask, f2 = e2.prev, c2 = e2.strstart + S, d2 = u2[s2 + a2 - 1], p2 = u2[s2 + a2];
+        e2.prev_length >= e2.good_match && (i2 >>= 2), o2 > e2.lookahead && (o2 = e2.lookahead);
+        do {
+          if (u2[(r2 = t2) + a2] === p2 && u2[r2 + a2 - 1] === d2 && u2[r2] === u2[s2] && u2[++r2] === u2[s2 + 1]) {
+            s2 += 2, r2++;
+            do {
+            } while (u2[++s2] === u2[++r2] && u2[++s2] === u2[++r2] && u2[++s2] === u2[++r2] && u2[++s2] === u2[++r2] && u2[++s2] === u2[++r2] && u2[++s2] === u2[++r2] && u2[++s2] === u2[++r2] && u2[++s2] === u2[++r2] && s2 < c2);
+            if (n2 = S - (c2 - s2), s2 = c2 - S, a2 < n2) {
+              if (e2.match_start = t2, o2 <= (a2 = n2)) break;
+              d2 = u2[s2 + a2 - 1], p2 = u2[s2 + a2];
+            }
+          }
+        } while ((t2 = f2[t2 & l2]) > h2 && 0 != --i2);
+        return a2 <= e2.lookahead ? a2 : e2.lookahead;
+      }
+      function j(e2) {
+        var t2, r2, n2, i2, s2, a2, o2, h2, u2, l2, f2 = e2.w_size;
+        do {
+          if (i2 = e2.window_size - e2.lookahead - e2.strstart, e2.strstart >= f2 + (f2 - z)) {
+            for (c.arraySet(e2.window, e2.window, f2, f2, 0), e2.match_start -= f2, e2.strstart -= f2, e2.block_start -= f2, t2 = r2 = e2.hash_size; n2 = e2.head[--t2], e2.head[t2] = f2 <= n2 ? n2 - f2 : 0, --r2; ) ;
+            for (t2 = r2 = f2; n2 = e2.prev[--t2], e2.prev[t2] = f2 <= n2 ? n2 - f2 : 0, --r2; ) ;
+            i2 += f2;
+          }
+          if (0 === e2.strm.avail_in) break;
+          if (a2 = e2.strm, o2 = e2.window, h2 = e2.strstart + e2.lookahead, u2 = i2, l2 = void 0, l2 = a2.avail_in, u2 < l2 && (l2 = u2), r2 = 0 === l2 ? 0 : (a2.avail_in -= l2, c.arraySet(o2, a2.input, a2.next_in, l2, h2), 1 === a2.state.wrap ? a2.adler = d(a2.adler, o2, l2, h2) : 2 === a2.state.wrap && (a2.adler = p(a2.adler, o2, l2, h2)), a2.next_in += l2, a2.total_in += l2, l2), e2.lookahead += r2, e2.lookahead + e2.insert >= x) for (s2 = e2.strstart - e2.insert, e2.ins_h = e2.window[s2], e2.ins_h = (e2.ins_h << e2.hash_shift ^ e2.window[s2 + 1]) & e2.hash_mask; e2.insert && (e2.ins_h = (e2.ins_h << e2.hash_shift ^ e2.window[s2 + x - 1]) & e2.hash_mask, e2.prev[s2 & e2.w_mask] = e2.head[e2.ins_h], e2.head[e2.ins_h] = s2, s2++, e2.insert--, !(e2.lookahead + e2.insert < x)); ) ;
+        } while (e2.lookahead < z && 0 !== e2.strm.avail_in);
+      }
+      function Z(e2, t2) {
+        for (var r2, n2; ; ) {
+          if (e2.lookahead < z) {
+            if (j(e2), e2.lookahead < z && t2 === l) return A;
+            if (0 === e2.lookahead) break;
+          }
+          if (r2 = 0, e2.lookahead >= x && (e2.ins_h = (e2.ins_h << e2.hash_shift ^ e2.window[e2.strstart + x - 1]) & e2.hash_mask, r2 = e2.prev[e2.strstart & e2.w_mask] = e2.head[e2.ins_h], e2.head[e2.ins_h] = e2.strstart), 0 !== r2 && e2.strstart - r2 <= e2.w_size - z && (e2.match_length = L(e2, r2)), e2.match_length >= x) if (n2 = u._tr_tally(e2, e2.strstart - e2.match_start, e2.match_length - x), e2.lookahead -= e2.match_length, e2.match_length <= e2.max_lazy_match && e2.lookahead >= x) {
+            for (e2.match_length--; e2.strstart++, e2.ins_h = (e2.ins_h << e2.hash_shift ^ e2.window[e2.strstart + x - 1]) & e2.hash_mask, r2 = e2.prev[e2.strstart & e2.w_mask] = e2.head[e2.ins_h], e2.head[e2.ins_h] = e2.strstart, 0 != --e2.match_length; ) ;
+            e2.strstart++;
+          } else e2.strstart += e2.match_length, e2.match_length = 0, e2.ins_h = e2.window[e2.strstart], e2.ins_h = (e2.ins_h << e2.hash_shift ^ e2.window[e2.strstart + 1]) & e2.hash_mask;
+          else n2 = u._tr_tally(e2, 0, e2.window[e2.strstart]), e2.lookahead--, e2.strstart++;
+          if (n2 && (N(e2, false), 0 === e2.strm.avail_out)) return A;
+        }
+        return e2.insert = e2.strstart < x - 1 ? e2.strstart : x - 1, t2 === f ? (N(e2, true), 0 === e2.strm.avail_out ? O : B) : e2.last_lit && (N(e2, false), 0 === e2.strm.avail_out) ? A : I;
+      }
+      function W(e2, t2) {
+        for (var r2, n2, i2; ; ) {
+          if (e2.lookahead < z) {
+            if (j(e2), e2.lookahead < z && t2 === l) return A;
+            if (0 === e2.lookahead) break;
+          }
+          if (r2 = 0, e2.lookahead >= x && (e2.ins_h = (e2.ins_h << e2.hash_shift ^ e2.window[e2.strstart + x - 1]) & e2.hash_mask, r2 = e2.prev[e2.strstart & e2.w_mask] = e2.head[e2.ins_h], e2.head[e2.ins_h] = e2.strstart), e2.prev_length = e2.match_length, e2.prev_match = e2.match_start, e2.match_length = x - 1, 0 !== r2 && e2.prev_length < e2.max_lazy_match && e2.strstart - r2 <= e2.w_size - z && (e2.match_length = L(e2, r2), e2.match_length <= 5 && (1 === e2.strategy || e2.match_length === x && 4096 < e2.strstart - e2.match_start) && (e2.match_length = x - 1)), e2.prev_length >= x && e2.match_length <= e2.prev_length) {
+            for (i2 = e2.strstart + e2.lookahead - x, n2 = u._tr_tally(e2, e2.strstart - 1 - e2.prev_match, e2.prev_length - x), e2.lookahead -= e2.prev_length - 1, e2.prev_length -= 2; ++e2.strstart <= i2 && (e2.ins_h = (e2.ins_h << e2.hash_shift ^ e2.window[e2.strstart + x - 1]) & e2.hash_mask, r2 = e2.prev[e2.strstart & e2.w_mask] = e2.head[e2.ins_h], e2.head[e2.ins_h] = e2.strstart), 0 != --e2.prev_length; ) ;
+            if (e2.match_available = 0, e2.match_length = x - 1, e2.strstart++, n2 && (N(e2, false), 0 === e2.strm.avail_out)) return A;
+          } else if (e2.match_available) {
+            if ((n2 = u._tr_tally(e2, 0, e2.window[e2.strstart - 1])) && N(e2, false), e2.strstart++, e2.lookahead--, 0 === e2.strm.avail_out) return A;
+          } else e2.match_available = 1, e2.strstart++, e2.lookahead--;
+        }
+        return e2.match_available && (n2 = u._tr_tally(e2, 0, e2.window[e2.strstart - 1]), e2.match_available = 0), e2.insert = e2.strstart < x - 1 ? e2.strstart : x - 1, t2 === f ? (N(e2, true), 0 === e2.strm.avail_out ? O : B) : e2.last_lit && (N(e2, false), 0 === e2.strm.avail_out) ? A : I;
+      }
+      function M(e2, t2, r2, n2, i2) {
+        this.good_length = e2, this.max_lazy = t2, this.nice_length = r2, this.max_chain = n2, this.func = i2;
+      }
+      function H() {
+        this.strm = null, this.status = 0, this.pending_buf = null, this.pending_buf_size = 0, this.pending_out = 0, this.pending = 0, this.wrap = 0, this.gzhead = null, this.gzindex = 0, this.method = v, this.last_flush = -1, this.w_size = 0, this.w_bits = 0, this.w_mask = 0, this.window = null, this.window_size = 0, this.prev = null, this.head = null, this.ins_h = 0, this.hash_size = 0, this.hash_bits = 0, this.hash_mask = 0, this.hash_shift = 0, this.block_start = 0, this.match_length = 0, this.prev_match = 0, this.match_available = 0, this.strstart = 0, this.match_start = 0, this.lookahead = 0, this.prev_length = 0, this.max_chain_length = 0, this.max_lazy_match = 0, this.level = 0, this.strategy = 0, this.good_match = 0, this.nice_match = 0, this.dyn_ltree = new c.Buf16(2 * w), this.dyn_dtree = new c.Buf16(2 * (2 * a + 1)), this.bl_tree = new c.Buf16(2 * (2 * o + 1)), D(this.dyn_ltree), D(this.dyn_dtree), D(this.bl_tree), this.l_desc = null, this.d_desc = null, this.bl_desc = null, this.bl_count = new c.Buf16(k + 1), this.heap = new c.Buf16(2 * s + 1), D(this.heap), this.heap_len = 0, this.heap_max = 0, this.depth = new c.Buf16(2 * s + 1), D(this.depth), this.l_buf = 0, this.lit_bufsize = 0, this.last_lit = 0, this.d_buf = 0, this.opt_len = 0, this.static_len = 0, this.matches = 0, this.insert = 0, this.bi_buf = 0, this.bi_valid = 0;
+      }
+      function G(e2) {
+        var t2;
+        return e2 && e2.state ? (e2.total_in = e2.total_out = 0, e2.data_type = i, (t2 = e2.state).pending = 0, t2.pending_out = 0, t2.wrap < 0 && (t2.wrap = -t2.wrap), t2.status = t2.wrap ? C : E, e2.adler = 2 === t2.wrap ? 0 : 1, t2.last_flush = l, u._tr_init(t2), m) : R(e2, _);
+      }
+      function K(e2) {
+        var t2 = G(e2);
+        return t2 === m && function(e3) {
+          e3.window_size = 2 * e3.w_size, D(e3.head), e3.max_lazy_match = h[e3.level].max_lazy, e3.good_match = h[e3.level].good_length, e3.nice_match = h[e3.level].nice_length, e3.max_chain_length = h[e3.level].max_chain, e3.strstart = 0, e3.block_start = 0, e3.lookahead = 0, e3.insert = 0, e3.match_length = e3.prev_length = x - 1, e3.match_available = 0, e3.ins_h = 0;
+        }(e2.state), t2;
+      }
+      function Y(e2, t2, r2, n2, i2, s2) {
+        if (!e2) return _;
+        var a2 = 1;
+        if (t2 === g && (t2 = 6), n2 < 0 ? (a2 = 0, n2 = -n2) : 15 < n2 && (a2 = 2, n2 -= 16), i2 < 1 || y < i2 || r2 !== v || n2 < 8 || 15 < n2 || t2 < 0 || 9 < t2 || s2 < 0 || b < s2) return R(e2, _);
+        8 === n2 && (n2 = 9);
+        var o2 = new H();
+        return (e2.state = o2).strm = e2, o2.wrap = a2, o2.gzhead = null, o2.w_bits = n2, o2.w_size = 1 << o2.w_bits, o2.w_mask = o2.w_size - 1, o2.hash_bits = i2 + 7, o2.hash_size = 1 << o2.hash_bits, o2.hash_mask = o2.hash_size - 1, o2.hash_shift = ~~((o2.hash_bits + x - 1) / x), o2.window = new c.Buf8(2 * o2.w_size), o2.head = new c.Buf16(o2.hash_size), o2.prev = new c.Buf16(o2.w_size), o2.lit_bufsize = 1 << i2 + 6, o2.pending_buf_size = 4 * o2.lit_bufsize, o2.pending_buf = new c.Buf8(o2.pending_buf_size), o2.d_buf = 1 * o2.lit_bufsize, o2.l_buf = 3 * o2.lit_bufsize, o2.level = t2, o2.strategy = s2, o2.method = r2, K(e2);
+      }
+      h = [new M(0, 0, 0, 0, function(e2, t2) {
+        var r2 = 65535;
+        for (r2 > e2.pending_buf_size - 5 && (r2 = e2.pending_buf_size - 5); ; ) {
+          if (e2.lookahead <= 1) {
+            if (j(e2), 0 === e2.lookahead && t2 === l) return A;
+            if (0 === e2.lookahead) break;
+          }
+          e2.strstart += e2.lookahead, e2.lookahead = 0;
+          var n2 = e2.block_start + r2;
+          if ((0 === e2.strstart || e2.strstart >= n2) && (e2.lookahead = e2.strstart - n2, e2.strstart = n2, N(e2, false), 0 === e2.strm.avail_out)) return A;
+          if (e2.strstart - e2.block_start >= e2.w_size - z && (N(e2, false), 0 === e2.strm.avail_out)) return A;
+        }
+        return e2.insert = 0, t2 === f ? (N(e2, true), 0 === e2.strm.avail_out ? O : B) : (e2.strstart > e2.block_start && (N(e2, false), e2.strm.avail_out), A);
+      }), new M(4, 4, 8, 4, Z), new M(4, 5, 16, 8, Z), new M(4, 6, 32, 32, Z), new M(4, 4, 16, 16, W), new M(8, 16, 32, 32, W), new M(8, 16, 128, 128, W), new M(8, 32, 128, 256, W), new M(32, 128, 258, 1024, W), new M(32, 258, 258, 4096, W)], r.deflateInit = function(e2, t2) {
+        return Y(e2, t2, v, 15, 8, 0);
+      }, r.deflateInit2 = Y, r.deflateReset = K, r.deflateResetKeep = G, r.deflateSetHeader = function(e2, t2) {
+        return e2 && e2.state ? 2 !== e2.state.wrap ? _ : (e2.state.gzhead = t2, m) : _;
+      }, r.deflate = function(e2, t2) {
+        var r2, n2, i2, s2;
+        if (!e2 || !e2.state || 5 < t2 || t2 < 0) return e2 ? R(e2, _) : _;
+        if (n2 = e2.state, !e2.output || !e2.input && 0 !== e2.avail_in || 666 === n2.status && t2 !== f) return R(e2, 0 === e2.avail_out ? -5 : _);
+        if (n2.strm = e2, r2 = n2.last_flush, n2.last_flush = t2, n2.status === C) if (2 === n2.wrap) e2.adler = 0, U(n2, 31), U(n2, 139), U(n2, 8), n2.gzhead ? (U(n2, (n2.gzhead.text ? 1 : 0) + (n2.gzhead.hcrc ? 2 : 0) + (n2.gzhead.extra ? 4 : 0) + (n2.gzhead.name ? 8 : 0) + (n2.gzhead.comment ? 16 : 0)), U(n2, 255 & n2.gzhead.time), U(n2, n2.gzhead.time >> 8 & 255), U(n2, n2.gzhead.time >> 16 & 255), U(n2, n2.gzhead.time >> 24 & 255), U(n2, 9 === n2.level ? 2 : 2 <= n2.strategy || n2.level < 2 ? 4 : 0), U(n2, 255 & n2.gzhead.os), n2.gzhead.extra && n2.gzhead.extra.length && (U(n2, 255 & n2.gzhead.extra.length), U(n2, n2.gzhead.extra.length >> 8 & 255)), n2.gzhead.hcrc && (e2.adler = p(e2.adler, n2.pending_buf, n2.pending, 0)), n2.gzindex = 0, n2.status = 69) : (U(n2, 0), U(n2, 0), U(n2, 0), U(n2, 0), U(n2, 0), U(n2, 9 === n2.level ? 2 : 2 <= n2.strategy || n2.level < 2 ? 4 : 0), U(n2, 3), n2.status = E);
+        else {
+          var a2 = v + (n2.w_bits - 8 << 4) << 8;
+          a2 |= (2 <= n2.strategy || n2.level < 2 ? 0 : n2.level < 6 ? 1 : 6 === n2.level ? 2 : 3) << 6, 0 !== n2.strstart && (a2 |= 32), a2 += 31 - a2 % 31, n2.status = E, P(n2, a2), 0 !== n2.strstart && (P(n2, e2.adler >>> 16), P(n2, 65535 & e2.adler)), e2.adler = 1;
+        }
+        if (69 === n2.status) if (n2.gzhead.extra) {
+          for (i2 = n2.pending; n2.gzindex < (65535 & n2.gzhead.extra.length) && (n2.pending !== n2.pending_buf_size || (n2.gzhead.hcrc && n2.pending > i2 && (e2.adler = p(e2.adler, n2.pending_buf, n2.pending - i2, i2)), F(e2), i2 = n2.pending, n2.pending !== n2.pending_buf_size)); ) U(n2, 255 & n2.gzhead.extra[n2.gzindex]), n2.gzindex++;
+          n2.gzhead.hcrc && n2.pending > i2 && (e2.adler = p(e2.adler, n2.pending_buf, n2.pending - i2, i2)), n2.gzindex === n2.gzhead.extra.length && (n2.gzindex = 0, n2.status = 73);
+        } else n2.status = 73;
+        if (73 === n2.status) if (n2.gzhead.name) {
+          i2 = n2.pending;
+          do {
+            if (n2.pending === n2.pending_buf_size && (n2.gzhead.hcrc && n2.pending > i2 && (e2.adler = p(e2.adler, n2.pending_buf, n2.pending - i2, i2)), F(e2), i2 = n2.pending, n2.pending === n2.pending_buf_size)) {
+              s2 = 1;
+              break;
+            }
+            s2 = n2.gzindex < n2.gzhead.name.length ? 255 & n2.gzhead.name.charCodeAt(n2.gzindex++) : 0, U(n2, s2);
+          } while (0 !== s2);
+          n2.gzhead.hcrc && n2.pending > i2 && (e2.adler = p(e2.adler, n2.pending_buf, n2.pending - i2, i2)), 0 === s2 && (n2.gzindex = 0, n2.status = 91);
+        } else n2.status = 91;
+        if (91 === n2.status) if (n2.gzhead.comment) {
+          i2 = n2.pending;
+          do {
+            if (n2.pending === n2.pending_buf_size && (n2.gzhead.hcrc && n2.pending > i2 && (e2.adler = p(e2.adler, n2.pending_buf, n2.pending - i2, i2)), F(e2), i2 = n2.pending, n2.pending === n2.pending_buf_size)) {
+              s2 = 1;
+              break;
+            }
+            s2 = n2.gzindex < n2.gzhead.comment.length ? 255 & n2.gzhead.comment.charCodeAt(n2.gzindex++) : 0, U(n2, s2);
+          } while (0 !== s2);
+          n2.gzhead.hcrc && n2.pending > i2 && (e2.adler = p(e2.adler, n2.pending_buf, n2.pending - i2, i2)), 0 === s2 && (n2.status = 103);
+        } else n2.status = 103;
+        if (103 === n2.status && (n2.gzhead.hcrc ? (n2.pending + 2 > n2.pending_buf_size && F(e2), n2.pending + 2 <= n2.pending_buf_size && (U(n2, 255 & e2.adler), U(n2, e2.adler >> 8 & 255), e2.adler = 0, n2.status = E)) : n2.status = E), 0 !== n2.pending) {
+          if (F(e2), 0 === e2.avail_out) return n2.last_flush = -1, m;
+        } else if (0 === e2.avail_in && T(t2) <= T(r2) && t2 !== f) return R(e2, -5);
+        if (666 === n2.status && 0 !== e2.avail_in) return R(e2, -5);
+        if (0 !== e2.avail_in || 0 !== n2.lookahead || t2 !== l && 666 !== n2.status) {
+          var o2 = 2 === n2.strategy ? function(e3, t3) {
+            for (var r3; ; ) {
+              if (0 === e3.lookahead && (j(e3), 0 === e3.lookahead)) {
+                if (t3 === l) return A;
+                break;
+              }
+              if (e3.match_length = 0, r3 = u._tr_tally(e3, 0, e3.window[e3.strstart]), e3.lookahead--, e3.strstart++, r3 && (N(e3, false), 0 === e3.strm.avail_out)) return A;
+            }
+            return e3.insert = 0, t3 === f ? (N(e3, true), 0 === e3.strm.avail_out ? O : B) : e3.last_lit && (N(e3, false), 0 === e3.strm.avail_out) ? A : I;
+          }(n2, t2) : 3 === n2.strategy ? function(e3, t3) {
+            for (var r3, n3, i3, s3, a3 = e3.window; ; ) {
+              if (e3.lookahead <= S) {
+                if (j(e3), e3.lookahead <= S && t3 === l) return A;
+                if (0 === e3.lookahead) break;
+              }
+              if (e3.match_length = 0, e3.lookahead >= x && 0 < e3.strstart && (n3 = a3[i3 = e3.strstart - 1]) === a3[++i3] && n3 === a3[++i3] && n3 === a3[++i3]) {
+                s3 = e3.strstart + S;
+                do {
+                } while (n3 === a3[++i3] && n3 === a3[++i3] && n3 === a3[++i3] && n3 === a3[++i3] && n3 === a3[++i3] && n3 === a3[++i3] && n3 === a3[++i3] && n3 === a3[++i3] && i3 < s3);
+                e3.match_length = S - (s3 - i3), e3.match_length > e3.lookahead && (e3.match_length = e3.lookahead);
+              }
+              if (e3.match_length >= x ? (r3 = u._tr_tally(e3, 1, e3.match_length - x), e3.lookahead -= e3.match_length, e3.strstart += e3.match_length, e3.match_length = 0) : (r3 = u._tr_tally(e3, 0, e3.window[e3.strstart]), e3.lookahead--, e3.strstart++), r3 && (N(e3, false), 0 === e3.strm.avail_out)) return A;
+            }
+            return e3.insert = 0, t3 === f ? (N(e3, true), 0 === e3.strm.avail_out ? O : B) : e3.last_lit && (N(e3, false), 0 === e3.strm.avail_out) ? A : I;
+          }(n2, t2) : h[n2.level].func(n2, t2);
+          if (o2 !== O && o2 !== B || (n2.status = 666), o2 === A || o2 === O) return 0 === e2.avail_out && (n2.last_flush = -1), m;
+          if (o2 === I && (1 === t2 ? u._tr_align(n2) : 5 !== t2 && (u._tr_stored_block(n2, 0, 0, false), 3 === t2 && (D(n2.head), 0 === n2.lookahead && (n2.strstart = 0, n2.block_start = 0, n2.insert = 0))), F(e2), 0 === e2.avail_out)) return n2.last_flush = -1, m;
+        }
+        return t2 !== f ? m : n2.wrap <= 0 ? 1 : (2 === n2.wrap ? (U(n2, 255 & e2.adler), U(n2, e2.adler >> 8 & 255), U(n2, e2.adler >> 16 & 255), U(n2, e2.adler >> 24 & 255), U(n2, 255 & e2.total_in), U(n2, e2.total_in >> 8 & 255), U(n2, e2.total_in >> 16 & 255), U(n2, e2.total_in >> 24 & 255)) : (P(n2, e2.adler >>> 16), P(n2, 65535 & e2.adler)), F(e2), 0 < n2.wrap && (n2.wrap = -n2.wrap), 0 !== n2.pending ? m : 1);
+      }, r.deflateEnd = function(e2) {
+        var t2;
+        return e2 && e2.state ? (t2 = e2.state.status) !== C && 69 !== t2 && 73 !== t2 && 91 !== t2 && 103 !== t2 && t2 !== E && 666 !== t2 ? R(e2, _) : (e2.state = null, t2 === E ? R(e2, -3) : m) : _;
+      }, r.deflateSetDictionary = function(e2, t2) {
+        var r2, n2, i2, s2, a2, o2, h2, u2, l2 = t2.length;
+        if (!e2 || !e2.state) return _;
+        if (2 === (s2 = (r2 = e2.state).wrap) || 1 === s2 && r2.status !== C || r2.lookahead) return _;
+        for (1 === s2 && (e2.adler = d(e2.adler, t2, l2, 0)), r2.wrap = 0, l2 >= r2.w_size && (0 === s2 && (D(r2.head), r2.strstart = 0, r2.block_start = 0, r2.insert = 0), u2 = new c.Buf8(r2.w_size), c.arraySet(u2, t2, l2 - r2.w_size, r2.w_size, 0), t2 = u2, l2 = r2.w_size), a2 = e2.avail_in, o2 = e2.next_in, h2 = e2.input, e2.avail_in = l2, e2.next_in = 0, e2.input = t2, j(r2); r2.lookahead >= x; ) {
+          for (n2 = r2.strstart, i2 = r2.lookahead - (x - 1); r2.ins_h = (r2.ins_h << r2.hash_shift ^ r2.window[n2 + x - 1]) & r2.hash_mask, r2.prev[n2 & r2.w_mask] = r2.head[r2.ins_h], r2.head[r2.ins_h] = n2, n2++, --i2; ) ;
+          r2.strstart = n2, r2.lookahead = x - 1, j(r2);
+        }
+        return r2.strstart += r2.lookahead, r2.block_start = r2.strstart, r2.insert = r2.lookahead, r2.lookahead = 0, r2.match_length = r2.prev_length = x - 1, r2.match_available = 0, e2.next_in = o2, e2.input = h2, e2.avail_in = a2, r2.wrap = s2, m;
+      }, r.deflateInfo = "pako deflate (from Nodeca project)";
+    }, { "../utils/common": 41, "./adler32": 43, "./crc32": 45, "./messages": 51, "./trees": 52 }], 47: [function(e, t, r) {
+      t.exports = function() {
+        this.text = 0, this.time = 0, this.xflags = 0, this.os = 0, this.extra = null, this.extra_len = 0, this.name = "", this.comment = "", this.hcrc = 0, this.done = false;
+      };
+    }, {}], 48: [function(e, t, r) {
+      t.exports = function(e2, t2) {
+        var r2, n, i, s, a, o, h, u, l, f, c, d, p, m, _, g, b, v, y, w, k, x, S, z, C;
+        r2 = e2.state, n = e2.next_in, z = e2.input, i = n + (e2.avail_in - 5), s = e2.next_out, C = e2.output, a = s - (t2 - e2.avail_out), o = s + (e2.avail_out - 257), h = r2.dmax, u = r2.wsize, l = r2.whave, f = r2.wnext, c = r2.window, d = r2.hold, p = r2.bits, m = r2.lencode, _ = r2.distcode, g = (1 << r2.lenbits) - 1, b = (1 << r2.distbits) - 1;
+        e: do {
+          p < 15 && (d += z[n++] << p, p += 8, d += z[n++] << p, p += 8), v = m[d & g];
+          t: for (; ; ) {
+            if (d >>>= y = v >>> 24, p -= y, 0 === (y = v >>> 16 & 255)) C[s++] = 65535 & v;
+            else {
+              if (!(16 & y)) {
+                if (0 == (64 & y)) {
+                  v = m[(65535 & v) + (d & (1 << y) - 1)];
+                  continue t;
+                }
+                if (32 & y) {
+                  r2.mode = 12;
+                  break e;
+                }
+                e2.msg = "invalid literal/length code", r2.mode = 30;
+                break e;
+              }
+              w = 65535 & v, (y &= 15) && (p < y && (d += z[n++] << p, p += 8), w += d & (1 << y) - 1, d >>>= y, p -= y), p < 15 && (d += z[n++] << p, p += 8, d += z[n++] << p, p += 8), v = _[d & b];
+              r: for (; ; ) {
+                if (d >>>= y = v >>> 24, p -= y, !(16 & (y = v >>> 16 & 255))) {
+                  if (0 == (64 & y)) {
+                    v = _[(65535 & v) + (d & (1 << y) - 1)];
+                    continue r;
+                  }
+                  e2.msg = "invalid distance code", r2.mode = 30;
+                  break e;
+                }
+                if (k = 65535 & v, p < (y &= 15) && (d += z[n++] << p, (p += 8) < y && (d += z[n++] << p, p += 8)), h < (k += d & (1 << y) - 1)) {
+                  e2.msg = "invalid distance too far back", r2.mode = 30;
+                  break e;
+                }
+                if (d >>>= y, p -= y, (y = s - a) < k) {
+                  if (l < (y = k - y) && r2.sane) {
+                    e2.msg = "invalid distance too far back", r2.mode = 30;
+                    break e;
+                  }
+                  if (S = c, (x = 0) === f) {
+                    if (x += u - y, y < w) {
+                      for (w -= y; C[s++] = c[x++], --y; ) ;
+                      x = s - k, S = C;
+                    }
+                  } else if (f < y) {
+                    if (x += u + f - y, (y -= f) < w) {
+                      for (w -= y; C[s++] = c[x++], --y; ) ;
+                      if (x = 0, f < w) {
+                        for (w -= y = f; C[s++] = c[x++], --y; ) ;
+                        x = s - k, S = C;
+                      }
+                    }
+                  } else if (x += f - y, y < w) {
+                    for (w -= y; C[s++] = c[x++], --y; ) ;
+                    x = s - k, S = C;
+                  }
+                  for (; 2 < w; ) C[s++] = S[x++], C[s++] = S[x++], C[s++] = S[x++], w -= 3;
+                  w && (C[s++] = S[x++], 1 < w && (C[s++] = S[x++]));
+                } else {
+                  for (x = s - k; C[s++] = C[x++], C[s++] = C[x++], C[s++] = C[x++], 2 < (w -= 3); ) ;
+                  w && (C[s++] = C[x++], 1 < w && (C[s++] = C[x++]));
+                }
+                break;
+              }
+            }
+            break;
+          }
+        } while (n < i && s < o);
+        n -= w = p >> 3, d &= (1 << (p -= w << 3)) - 1, e2.next_in = n, e2.next_out = s, e2.avail_in = n < i ? i - n + 5 : 5 - (n - i), e2.avail_out = s < o ? o - s + 257 : 257 - (s - o), r2.hold = d, r2.bits = p;
+      };
+    }, {}], 49: [function(e, t, r) {
+      var I = e("../utils/common"), O = e("./adler32"), B = e("./crc32"), R = e("./inffast"), T = e("./inftrees"), D = 1, F = 2, N = 0, U = -2, P = 1, n = 852, i = 592;
+      function L(e2) {
+        return (e2 >>> 24 & 255) + (e2 >>> 8 & 65280) + ((65280 & e2) << 8) + ((255 & e2) << 24);
+      }
+      function s() {
+        this.mode = 0, this.last = false, this.wrap = 0, this.havedict = false, this.flags = 0, this.dmax = 0, this.check = 0, this.total = 0, this.head = null, this.wbits = 0, this.wsize = 0, this.whave = 0, this.wnext = 0, this.window = null, this.hold = 0, this.bits = 0, this.length = 0, this.offset = 0, this.extra = 0, this.lencode = null, this.distcode = null, this.lenbits = 0, this.distbits = 0, this.ncode = 0, this.nlen = 0, this.ndist = 0, this.have = 0, this.next = null, this.lens = new I.Buf16(320), this.work = new I.Buf16(288), this.lendyn = null, this.distdyn = null, this.sane = 0, this.back = 0, this.was = 0;
+      }
+      function a(e2) {
+        var t2;
+        return e2 && e2.state ? (t2 = e2.state, e2.total_in = e2.total_out = t2.total = 0, e2.msg = "", t2.wrap && (e2.adler = 1 & t2.wrap), t2.mode = P, t2.last = 0, t2.havedict = 0, t2.dmax = 32768, t2.head = null, t2.hold = 0, t2.bits = 0, t2.lencode = t2.lendyn = new I.Buf32(n), t2.distcode = t2.distdyn = new I.Buf32(i), t2.sane = 1, t2.back = -1, N) : U;
+      }
+      function o(e2) {
+        var t2;
+        return e2 && e2.state ? ((t2 = e2.state).wsize = 0, t2.whave = 0, t2.wnext = 0, a(e2)) : U;
+      }
+      function h(e2, t2) {
+        var r2, n2;
+        return e2 && e2.state ? (n2 = e2.state, t2 < 0 ? (r2 = 0, t2 = -t2) : (r2 = 1 + (t2 >> 4), t2 < 48 && (t2 &= 15)), t2 && (t2 < 8 || 15 < t2) ? U : (null !== n2.window && n2.wbits !== t2 && (n2.window = null), n2.wrap = r2, n2.wbits = t2, o(e2))) : U;
+      }
+      function u(e2, t2) {
+        var r2, n2;
+        return e2 ? (n2 = new s(), (e2.state = n2).window = null, (r2 = h(e2, t2)) !== N && (e2.state = null), r2) : U;
+      }
+      var l, f, c = true;
+      function j(e2) {
+        if (c) {
+          var t2;
+          for (l = new I.Buf32(512), f = new I.Buf32(32), t2 = 0; t2 < 144; ) e2.lens[t2++] = 8;
+          for (; t2 < 256; ) e2.lens[t2++] = 9;
+          for (; t2 < 280; ) e2.lens[t2++] = 7;
+          for (; t2 < 288; ) e2.lens[t2++] = 8;
+          for (T(D, e2.lens, 0, 288, l, 0, e2.work, { bits: 9 }), t2 = 0; t2 < 32; ) e2.lens[t2++] = 5;
+          T(F, e2.lens, 0, 32, f, 0, e2.work, { bits: 5 }), c = false;
+        }
+        e2.lencode = l, e2.lenbits = 9, e2.distcode = f, e2.distbits = 5;
+      }
+      function Z(e2, t2, r2, n2) {
+        var i2, s2 = e2.state;
+        return null === s2.window && (s2.wsize = 1 << s2.wbits, s2.wnext = 0, s2.whave = 0, s2.window = new I.Buf8(s2.wsize)), n2 >= s2.wsize ? (I.arraySet(s2.window, t2, r2 - s2.wsize, s2.wsize, 0), s2.wnext = 0, s2.whave = s2.wsize) : (n2 < (i2 = s2.wsize - s2.wnext) && (i2 = n2), I.arraySet(s2.window, t2, r2 - n2, i2, s2.wnext), (n2 -= i2) ? (I.arraySet(s2.window, t2, r2 - n2, n2, 0), s2.wnext = n2, s2.whave = s2.wsize) : (s2.wnext += i2, s2.wnext === s2.wsize && (s2.wnext = 0), s2.whave < s2.wsize && (s2.whave += i2))), 0;
+      }
+      r.inflateReset = o, r.inflateReset2 = h, r.inflateResetKeep = a, r.inflateInit = function(e2) {
+        return u(e2, 15);
+      }, r.inflateInit2 = u, r.inflate = function(e2, t2) {
+        var r2, n2, i2, s2, a2, o2, h2, u2, l2, f2, c2, d, p, m, _, g, b, v, y, w, k, x, S, z, C = 0, E = new I.Buf8(4), A = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+        if (!e2 || !e2.state || !e2.output || !e2.input && 0 !== e2.avail_in) return U;
+        12 === (r2 = e2.state).mode && (r2.mode = 13), a2 = e2.next_out, i2 = e2.output, h2 = e2.avail_out, s2 = e2.next_in, n2 = e2.input, o2 = e2.avail_in, u2 = r2.hold, l2 = r2.bits, f2 = o2, c2 = h2, x = N;
+        e: for (; ; ) switch (r2.mode) {
+          case P:
+            if (0 === r2.wrap) {
+              r2.mode = 13;
+              break;
+            }
+            for (; l2 < 16; ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            if (2 & r2.wrap && 35615 === u2) {
+              E[r2.check = 0] = 255 & u2, E[1] = u2 >>> 8 & 255, r2.check = B(r2.check, E, 2, 0), l2 = u2 = 0, r2.mode = 2;
+              break;
+            }
+            if (r2.flags = 0, r2.head && (r2.head.done = false), !(1 & r2.wrap) || (((255 & u2) << 8) + (u2 >> 8)) % 31) {
+              e2.msg = "incorrect header check", r2.mode = 30;
+              break;
+            }
+            if (8 != (15 & u2)) {
+              e2.msg = "unknown compression method", r2.mode = 30;
+              break;
+            }
+            if (l2 -= 4, k = 8 + (15 & (u2 >>>= 4)), 0 === r2.wbits) r2.wbits = k;
+            else if (k > r2.wbits) {
+              e2.msg = "invalid window size", r2.mode = 30;
+              break;
+            }
+            r2.dmax = 1 << k, e2.adler = r2.check = 1, r2.mode = 512 & u2 ? 10 : 12, l2 = u2 = 0;
+            break;
+          case 2:
+            for (; l2 < 16; ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            if (r2.flags = u2, 8 != (255 & r2.flags)) {
+              e2.msg = "unknown compression method", r2.mode = 30;
+              break;
+            }
+            if (57344 & r2.flags) {
+              e2.msg = "unknown header flags set", r2.mode = 30;
+              break;
+            }
+            r2.head && (r2.head.text = u2 >> 8 & 1), 512 & r2.flags && (E[0] = 255 & u2, E[1] = u2 >>> 8 & 255, r2.check = B(r2.check, E, 2, 0)), l2 = u2 = 0, r2.mode = 3;
+          case 3:
+            for (; l2 < 32; ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            r2.head && (r2.head.time = u2), 512 & r2.flags && (E[0] = 255 & u2, E[1] = u2 >>> 8 & 255, E[2] = u2 >>> 16 & 255, E[3] = u2 >>> 24 & 255, r2.check = B(r2.check, E, 4, 0)), l2 = u2 = 0, r2.mode = 4;
+          case 4:
+            for (; l2 < 16; ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            r2.head && (r2.head.xflags = 255 & u2, r2.head.os = u2 >> 8), 512 & r2.flags && (E[0] = 255 & u2, E[1] = u2 >>> 8 & 255, r2.check = B(r2.check, E, 2, 0)), l2 = u2 = 0, r2.mode = 5;
+          case 5:
+            if (1024 & r2.flags) {
+              for (; l2 < 16; ) {
+                if (0 === o2) break e;
+                o2--, u2 += n2[s2++] << l2, l2 += 8;
+              }
+              r2.length = u2, r2.head && (r2.head.extra_len = u2), 512 & r2.flags && (E[0] = 255 & u2, E[1] = u2 >>> 8 & 255, r2.check = B(r2.check, E, 2, 0)), l2 = u2 = 0;
+            } else r2.head && (r2.head.extra = null);
+            r2.mode = 6;
+          case 6:
+            if (1024 & r2.flags && (o2 < (d = r2.length) && (d = o2), d && (r2.head && (k = r2.head.extra_len - r2.length, r2.head.extra || (r2.head.extra = new Array(r2.head.extra_len)), I.arraySet(r2.head.extra, n2, s2, d, k)), 512 & r2.flags && (r2.check = B(r2.check, n2, d, s2)), o2 -= d, s2 += d, r2.length -= d), r2.length)) break e;
+            r2.length = 0, r2.mode = 7;
+          case 7:
+            if (2048 & r2.flags) {
+              if (0 === o2) break e;
+              for (d = 0; k = n2[s2 + d++], r2.head && k && r2.length < 65536 && (r2.head.name += String.fromCharCode(k)), k && d < o2; ) ;
+              if (512 & r2.flags && (r2.check = B(r2.check, n2, d, s2)), o2 -= d, s2 += d, k) break e;
+            } else r2.head && (r2.head.name = null);
+            r2.length = 0, r2.mode = 8;
+          case 8:
+            if (4096 & r2.flags) {
+              if (0 === o2) break e;
+              for (d = 0; k = n2[s2 + d++], r2.head && k && r2.length < 65536 && (r2.head.comment += String.fromCharCode(k)), k && d < o2; ) ;
+              if (512 & r2.flags && (r2.check = B(r2.check, n2, d, s2)), o2 -= d, s2 += d, k) break e;
+            } else r2.head && (r2.head.comment = null);
+            r2.mode = 9;
+          case 9:
+            if (512 & r2.flags) {
+              for (; l2 < 16; ) {
+                if (0 === o2) break e;
+                o2--, u2 += n2[s2++] << l2, l2 += 8;
+              }
+              if (u2 !== (65535 & r2.check)) {
+                e2.msg = "header crc mismatch", r2.mode = 30;
+                break;
+              }
+              l2 = u2 = 0;
+            }
+            r2.head && (r2.head.hcrc = r2.flags >> 9 & 1, r2.head.done = true), e2.adler = r2.check = 0, r2.mode = 12;
+            break;
+          case 10:
+            for (; l2 < 32; ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            e2.adler = r2.check = L(u2), l2 = u2 = 0, r2.mode = 11;
+          case 11:
+            if (0 === r2.havedict) return e2.next_out = a2, e2.avail_out = h2, e2.next_in = s2, e2.avail_in = o2, r2.hold = u2, r2.bits = l2, 2;
+            e2.adler = r2.check = 1, r2.mode = 12;
+          case 12:
+            if (5 === t2 || 6 === t2) break e;
+          case 13:
+            if (r2.last) {
+              u2 >>>= 7 & l2, l2 -= 7 & l2, r2.mode = 27;
+              break;
+            }
+            for (; l2 < 3; ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            switch (r2.last = 1 & u2, l2 -= 1, 3 & (u2 >>>= 1)) {
+              case 0:
+                r2.mode = 14;
+                break;
+              case 1:
+                if (j(r2), r2.mode = 20, 6 !== t2) break;
+                u2 >>>= 2, l2 -= 2;
+                break e;
+              case 2:
+                r2.mode = 17;
+                break;
+              case 3:
+                e2.msg = "invalid block type", r2.mode = 30;
+            }
+            u2 >>>= 2, l2 -= 2;
+            break;
+          case 14:
+            for (u2 >>>= 7 & l2, l2 -= 7 & l2; l2 < 32; ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            if ((65535 & u2) != (u2 >>> 16 ^ 65535)) {
+              e2.msg = "invalid stored block lengths", r2.mode = 30;
+              break;
+            }
+            if (r2.length = 65535 & u2, l2 = u2 = 0, r2.mode = 15, 6 === t2) break e;
+          case 15:
+            r2.mode = 16;
+          case 16:
+            if (d = r2.length) {
+              if (o2 < d && (d = o2), h2 < d && (d = h2), 0 === d) break e;
+              I.arraySet(i2, n2, s2, d, a2), o2 -= d, s2 += d, h2 -= d, a2 += d, r2.length -= d;
+              break;
+            }
+            r2.mode = 12;
+            break;
+          case 17:
+            for (; l2 < 14; ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            if (r2.nlen = 257 + (31 & u2), u2 >>>= 5, l2 -= 5, r2.ndist = 1 + (31 & u2), u2 >>>= 5, l2 -= 5, r2.ncode = 4 + (15 & u2), u2 >>>= 4, l2 -= 4, 286 < r2.nlen || 30 < r2.ndist) {
+              e2.msg = "too many length or distance symbols", r2.mode = 30;
+              break;
+            }
+            r2.have = 0, r2.mode = 18;
+          case 18:
+            for (; r2.have < r2.ncode; ) {
+              for (; l2 < 3; ) {
+                if (0 === o2) break e;
+                o2--, u2 += n2[s2++] << l2, l2 += 8;
+              }
+              r2.lens[A[r2.have++]] = 7 & u2, u2 >>>= 3, l2 -= 3;
+            }
+            for (; r2.have < 19; ) r2.lens[A[r2.have++]] = 0;
+            if (r2.lencode = r2.lendyn, r2.lenbits = 7, S = { bits: r2.lenbits }, x = T(0, r2.lens, 0, 19, r2.lencode, 0, r2.work, S), r2.lenbits = S.bits, x) {
+              e2.msg = "invalid code lengths set", r2.mode = 30;
+              break;
+            }
+            r2.have = 0, r2.mode = 19;
+          case 19:
+            for (; r2.have < r2.nlen + r2.ndist; ) {
+              for (; g = (C = r2.lencode[u2 & (1 << r2.lenbits) - 1]) >>> 16 & 255, b = 65535 & C, !((_ = C >>> 24) <= l2); ) {
+                if (0 === o2) break e;
+                o2--, u2 += n2[s2++] << l2, l2 += 8;
+              }
+              if (b < 16) u2 >>>= _, l2 -= _, r2.lens[r2.have++] = b;
+              else {
+                if (16 === b) {
+                  for (z = _ + 2; l2 < z; ) {
+                    if (0 === o2) break e;
+                    o2--, u2 += n2[s2++] << l2, l2 += 8;
+                  }
+                  if (u2 >>>= _, l2 -= _, 0 === r2.have) {
+                    e2.msg = "invalid bit length repeat", r2.mode = 30;
+                    break;
+                  }
+                  k = r2.lens[r2.have - 1], d = 3 + (3 & u2), u2 >>>= 2, l2 -= 2;
+                } else if (17 === b) {
+                  for (z = _ + 3; l2 < z; ) {
+                    if (0 === o2) break e;
+                    o2--, u2 += n2[s2++] << l2, l2 += 8;
+                  }
+                  l2 -= _, k = 0, d = 3 + (7 & (u2 >>>= _)), u2 >>>= 3, l2 -= 3;
+                } else {
+                  for (z = _ + 7; l2 < z; ) {
+                    if (0 === o2) break e;
+                    o2--, u2 += n2[s2++] << l2, l2 += 8;
+                  }
+                  l2 -= _, k = 0, d = 11 + (127 & (u2 >>>= _)), u2 >>>= 7, l2 -= 7;
+                }
+                if (r2.have + d > r2.nlen + r2.ndist) {
+                  e2.msg = "invalid bit length repeat", r2.mode = 30;
+                  break;
+                }
+                for (; d--; ) r2.lens[r2.have++] = k;
+              }
+            }
+            if (30 === r2.mode) break;
+            if (0 === r2.lens[256]) {
+              e2.msg = "invalid code -- missing end-of-block", r2.mode = 30;
+              break;
+            }
+            if (r2.lenbits = 9, S = { bits: r2.lenbits }, x = T(D, r2.lens, 0, r2.nlen, r2.lencode, 0, r2.work, S), r2.lenbits = S.bits, x) {
+              e2.msg = "invalid literal/lengths set", r2.mode = 30;
+              break;
+            }
+            if (r2.distbits = 6, r2.distcode = r2.distdyn, S = { bits: r2.distbits }, x = T(F, r2.lens, r2.nlen, r2.ndist, r2.distcode, 0, r2.work, S), r2.distbits = S.bits, x) {
+              e2.msg = "invalid distances set", r2.mode = 30;
+              break;
+            }
+            if (r2.mode = 20, 6 === t2) break e;
+          case 20:
+            r2.mode = 21;
+          case 21:
+            if (6 <= o2 && 258 <= h2) {
+              e2.next_out = a2, e2.avail_out = h2, e2.next_in = s2, e2.avail_in = o2, r2.hold = u2, r2.bits = l2, R(e2, c2), a2 = e2.next_out, i2 = e2.output, h2 = e2.avail_out, s2 = e2.next_in, n2 = e2.input, o2 = e2.avail_in, u2 = r2.hold, l2 = r2.bits, 12 === r2.mode && (r2.back = -1);
+              break;
+            }
+            for (r2.back = 0; g = (C = r2.lencode[u2 & (1 << r2.lenbits) - 1]) >>> 16 & 255, b = 65535 & C, !((_ = C >>> 24) <= l2); ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            if (g && 0 == (240 & g)) {
+              for (v = _, y = g, w = b; g = (C = r2.lencode[w + ((u2 & (1 << v + y) - 1) >> v)]) >>> 16 & 255, b = 65535 & C, !(v + (_ = C >>> 24) <= l2); ) {
+                if (0 === o2) break e;
+                o2--, u2 += n2[s2++] << l2, l2 += 8;
+              }
+              u2 >>>= v, l2 -= v, r2.back += v;
+            }
+            if (u2 >>>= _, l2 -= _, r2.back += _, r2.length = b, 0 === g) {
+              r2.mode = 26;
+              break;
+            }
+            if (32 & g) {
+              r2.back = -1, r2.mode = 12;
+              break;
+            }
+            if (64 & g) {
+              e2.msg = "invalid literal/length code", r2.mode = 30;
+              break;
+            }
+            r2.extra = 15 & g, r2.mode = 22;
+          case 22:
+            if (r2.extra) {
+              for (z = r2.extra; l2 < z; ) {
+                if (0 === o2) break e;
+                o2--, u2 += n2[s2++] << l2, l2 += 8;
+              }
+              r2.length += u2 & (1 << r2.extra) - 1, u2 >>>= r2.extra, l2 -= r2.extra, r2.back += r2.extra;
+            }
+            r2.was = r2.length, r2.mode = 23;
+          case 23:
+            for (; g = (C = r2.distcode[u2 & (1 << r2.distbits) - 1]) >>> 16 & 255, b = 65535 & C, !((_ = C >>> 24) <= l2); ) {
+              if (0 === o2) break e;
+              o2--, u2 += n2[s2++] << l2, l2 += 8;
+            }
+            if (0 == (240 & g)) {
+              for (v = _, y = g, w = b; g = (C = r2.distcode[w + ((u2 & (1 << v + y) - 1) >> v)]) >>> 16 & 255, b = 65535 & C, !(v + (_ = C >>> 24) <= l2); ) {
+                if (0 === o2) break e;
+                o2--, u2 += n2[s2++] << l2, l2 += 8;
+              }
+              u2 >>>= v, l2 -= v, r2.back += v;
+            }
+            if (u2 >>>= _, l2 -= _, r2.back += _, 64 & g) {
+              e2.msg = "invalid distance code", r2.mode = 30;
+              break;
+            }
+            r2.offset = b, r2.extra = 15 & g, r2.mode = 24;
+          case 24:
+            if (r2.extra) {
+              for (z = r2.extra; l2 < z; ) {
+                if (0 === o2) break e;
+                o2--, u2 += n2[s2++] << l2, l2 += 8;
+              }
+              r2.offset += u2 & (1 << r2.extra) - 1, u2 >>>= r2.extra, l2 -= r2.extra, r2.back += r2.extra;
+            }
+            if (r2.offset > r2.dmax) {
+              e2.msg = "invalid distance too far back", r2.mode = 30;
+              break;
+            }
+            r2.mode = 25;
+          case 25:
+            if (0 === h2) break e;
+            if (d = c2 - h2, r2.offset > d) {
+              if ((d = r2.offset - d) > r2.whave && r2.sane) {
+                e2.msg = "invalid distance too far back", r2.mode = 30;
+                break;
+              }
+              p = d > r2.wnext ? (d -= r2.wnext, r2.wsize - d) : r2.wnext - d, d > r2.length && (d = r2.length), m = r2.window;
+            } else m = i2, p = a2 - r2.offset, d = r2.length;
+            for (h2 < d && (d = h2), h2 -= d, r2.length -= d; i2[a2++] = m[p++], --d; ) ;
+            0 === r2.length && (r2.mode = 21);
+            break;
+          case 26:
+            if (0 === h2) break e;
+            i2[a2++] = r2.length, h2--, r2.mode = 21;
+            break;
+          case 27:
+            if (r2.wrap) {
+              for (; l2 < 32; ) {
+                if (0 === o2) break e;
+                o2--, u2 |= n2[s2++] << l2, l2 += 8;
+              }
+              if (c2 -= h2, e2.total_out += c2, r2.total += c2, c2 && (e2.adler = r2.check = r2.flags ? B(r2.check, i2, c2, a2 - c2) : O(r2.check, i2, c2, a2 - c2)), c2 = h2, (r2.flags ? u2 : L(u2)) !== r2.check) {
+                e2.msg = "incorrect data check", r2.mode = 30;
+                break;
+              }
+              l2 = u2 = 0;
+            }
+            r2.mode = 28;
+          case 28:
+            if (r2.wrap && r2.flags) {
+              for (; l2 < 32; ) {
+                if (0 === o2) break e;
+                o2--, u2 += n2[s2++] << l2, l2 += 8;
+              }
+              if (u2 !== (4294967295 & r2.total)) {
+                e2.msg = "incorrect length check", r2.mode = 30;
+                break;
+              }
+              l2 = u2 = 0;
+            }
+            r2.mode = 29;
+          case 29:
+            x = 1;
+            break e;
+          case 30:
+            x = -3;
+            break e;
+          case 31:
+            return -4;
+          case 32:
+          default:
+            return U;
+        }
+        return e2.next_out = a2, e2.avail_out = h2, e2.next_in = s2, e2.avail_in = o2, r2.hold = u2, r2.bits = l2, (r2.wsize || c2 !== e2.avail_out && r2.mode < 30 && (r2.mode < 27 || 4 !== t2)) && Z(e2, e2.output, e2.next_out, c2 - e2.avail_out) ? (r2.mode = 31, -4) : (f2 -= e2.avail_in, c2 -= e2.avail_out, e2.total_in += f2, e2.total_out += c2, r2.total += c2, r2.wrap && c2 && (e2.adler = r2.check = r2.flags ? B(r2.check, i2, c2, e2.next_out - c2) : O(r2.check, i2, c2, e2.next_out - c2)), e2.data_type = r2.bits + (r2.last ? 64 : 0) + (12 === r2.mode ? 128 : 0) + (20 === r2.mode || 15 === r2.mode ? 256 : 0), (0 == f2 && 0 === c2 || 4 === t2) && x === N && (x = -5), x);
+      }, r.inflateEnd = function(e2) {
+        if (!e2 || !e2.state) return U;
+        var t2 = e2.state;
+        return t2.window && (t2.window = null), e2.state = null, N;
+      }, r.inflateGetHeader = function(e2, t2) {
+        var r2;
+        return e2 && e2.state ? 0 == (2 & (r2 = e2.state).wrap) ? U : ((r2.head = t2).done = false, N) : U;
+      }, r.inflateSetDictionary = function(e2, t2) {
+        var r2, n2 = t2.length;
+        return e2 && e2.state ? 0 !== (r2 = e2.state).wrap && 11 !== r2.mode ? U : 11 === r2.mode && O(1, t2, n2, 0) !== r2.check ? -3 : Z(e2, t2, n2, n2) ? (r2.mode = 31, -4) : (r2.havedict = 1, N) : U;
+      }, r.inflateInfo = "pako inflate (from Nodeca project)";
+    }, { "../utils/common": 41, "./adler32": 43, "./crc32": 45, "./inffast": 48, "./inftrees": 50 }], 50: [function(e, t, r) {
+      var D = e("../utils/common"), F = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0], N = [16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 16, 72, 78], U = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577, 0, 0], P = [16, 16, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 29, 29, 64, 64];
+      t.exports = function(e2, t2, r2, n, i, s, a, o) {
+        var h, u, l, f, c, d, p, m, _, g = o.bits, b = 0, v = 0, y = 0, w = 0, k = 0, x = 0, S = 0, z = 0, C = 0, E = 0, A = null, I = 0, O = new D.Buf16(16), B = new D.Buf16(16), R = null, T = 0;
+        for (b = 0; b <= 15; b++) O[b] = 0;
+        for (v = 0; v < n; v++) O[t2[r2 + v]]++;
+        for (k = g, w = 15; 1 <= w && 0 === O[w]; w--) ;
+        if (w < k && (k = w), 0 === w) return i[s++] = 20971520, i[s++] = 20971520, o.bits = 1, 0;
+        for (y = 1; y < w && 0 === O[y]; y++) ;
+        for (k < y && (k = y), b = z = 1; b <= 15; b++) if (z <<= 1, (z -= O[b]) < 0) return -1;
+        if (0 < z && (0 === e2 || 1 !== w)) return -1;
+        for (B[1] = 0, b = 1; b < 15; b++) B[b + 1] = B[b] + O[b];
+        for (v = 0; v < n; v++) 0 !== t2[r2 + v] && (a[B[t2[r2 + v]]++] = v);
+        if (d = 0 === e2 ? (A = R = a, 19) : 1 === e2 ? (A = F, I -= 257, R = N, T -= 257, 256) : (A = U, R = P, -1), b = y, c = s, S = v = E = 0, l = -1, f = (C = 1 << (x = k)) - 1, 1 === e2 && 852 < C || 2 === e2 && 592 < C) return 1;
+        for (; ; ) {
+          for (p = b - S, _ = a[v] < d ? (m = 0, a[v]) : a[v] > d ? (m = R[T + a[v]], A[I + a[v]]) : (m = 96, 0), h = 1 << b - S, y = u = 1 << x; i[c + (E >> S) + (u -= h)] = p << 24 | m << 16 | _ | 0, 0 !== u; ) ;
+          for (h = 1 << b - 1; E & h; ) h >>= 1;
+          if (0 !== h ? (E &= h - 1, E += h) : E = 0, v++, 0 == --O[b]) {
+            if (b === w) break;
+            b = t2[r2 + a[v]];
+          }
+          if (k < b && (E & f) !== l) {
+            for (0 === S && (S = k), c += y, z = 1 << (x = b - S); x + S < w && !((z -= O[x + S]) <= 0); ) x++, z <<= 1;
+            if (C += 1 << x, 1 === e2 && 852 < C || 2 === e2 && 592 < C) return 1;
+            i[l = E & f] = k << 24 | x << 16 | c - s | 0;
+          }
+        }
+        return 0 !== E && (i[c + E] = b - S << 24 | 64 << 16 | 0), o.bits = k, 0;
+      };
+    }, { "../utils/common": 41 }], 51: [function(e, t, r) {
+      t.exports = { 2: "need dictionary", 1: "stream end", 0: "", "-1": "file error", "-2": "stream error", "-3": "data error", "-4": "insufficient memory", "-5": "buffer error", "-6": "incompatible version" };
+    }, {}], 52: [function(e, t, r) {
+      var i = e("../utils/common"), o = 0, h = 1;
+      function n(e2) {
+        for (var t2 = e2.length; 0 <= --t2; ) e2[t2] = 0;
+      }
+      var s = 0, a = 29, u = 256, l = u + 1 + a, f = 30, c = 19, _ = 2 * l + 1, g = 15, d = 16, p = 7, m = 256, b = 16, v = 17, y = 18, w = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0], k = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13], x = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 7], S = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15], z = new Array(2 * (l + 2));
+      n(z);
+      var C = new Array(2 * f);
+      n(C);
+      var E = new Array(512);
+      n(E);
+      var A = new Array(256);
+      n(A);
+      var I = new Array(a);
+      n(I);
+      var O, B, R, T = new Array(f);
+      function D(e2, t2, r2, n2, i2) {
+        this.static_tree = e2, this.extra_bits = t2, this.extra_base = r2, this.elems = n2, this.max_length = i2, this.has_stree = e2 && e2.length;
+      }
+      function F(e2, t2) {
+        this.dyn_tree = e2, this.max_code = 0, this.stat_desc = t2;
+      }
+      function N(e2) {
+        return e2 < 256 ? E[e2] : E[256 + (e2 >>> 7)];
+      }
+      function U(e2, t2) {
+        e2.pending_buf[e2.pending++] = 255 & t2, e2.pending_buf[e2.pending++] = t2 >>> 8 & 255;
+      }
+      function P(e2, t2, r2) {
+        e2.bi_valid > d - r2 ? (e2.bi_buf |= t2 << e2.bi_valid & 65535, U(e2, e2.bi_buf), e2.bi_buf = t2 >> d - e2.bi_valid, e2.bi_valid += r2 - d) : (e2.bi_buf |= t2 << e2.bi_valid & 65535, e2.bi_valid += r2);
+      }
+      function L(e2, t2, r2) {
+        P(e2, r2[2 * t2], r2[2 * t2 + 1]);
+      }
+      function j(e2, t2) {
+        for (var r2 = 0; r2 |= 1 & e2, e2 >>>= 1, r2 <<= 1, 0 < --t2; ) ;
+        return r2 >>> 1;
+      }
+      function Z(e2, t2, r2) {
+        var n2, i2, s2 = new Array(g + 1), a2 = 0;
+        for (n2 = 1; n2 <= g; n2++) s2[n2] = a2 = a2 + r2[n2 - 1] << 1;
+        for (i2 = 0; i2 <= t2; i2++) {
+          var o2 = e2[2 * i2 + 1];
+          0 !== o2 && (e2[2 * i2] = j(s2[o2]++, o2));
+        }
+      }
+      function W(e2) {
+        var t2;
+        for (t2 = 0; t2 < l; t2++) e2.dyn_ltree[2 * t2] = 0;
+        for (t2 = 0; t2 < f; t2++) e2.dyn_dtree[2 * t2] = 0;
+        for (t2 = 0; t2 < c; t2++) e2.bl_tree[2 * t2] = 0;
+        e2.dyn_ltree[2 * m] = 1, e2.opt_len = e2.static_len = 0, e2.last_lit = e2.matches = 0;
+      }
+      function M(e2) {
+        8 < e2.bi_valid ? U(e2, e2.bi_buf) : 0 < e2.bi_valid && (e2.pending_buf[e2.pending++] = e2.bi_buf), e2.bi_buf = 0, e2.bi_valid = 0;
+      }
+      function H(e2, t2, r2, n2) {
+        var i2 = 2 * t2, s2 = 2 * r2;
+        return e2[i2] < e2[s2] || e2[i2] === e2[s2] && n2[t2] <= n2[r2];
+      }
+      function G(e2, t2, r2) {
+        for (var n2 = e2.heap[r2], i2 = r2 << 1; i2 <= e2.heap_len && (i2 < e2.heap_len && H(t2, e2.heap[i2 + 1], e2.heap[i2], e2.depth) && i2++, !H(t2, n2, e2.heap[i2], e2.depth)); ) e2.heap[r2] = e2.heap[i2], r2 = i2, i2 <<= 1;
+        e2.heap[r2] = n2;
+      }
+      function K(e2, t2, r2) {
+        var n2, i2, s2, a2, o2 = 0;
+        if (0 !== e2.last_lit) for (; n2 = e2.pending_buf[e2.d_buf + 2 * o2] << 8 | e2.pending_buf[e2.d_buf + 2 * o2 + 1], i2 = e2.pending_buf[e2.l_buf + o2], o2++, 0 === n2 ? L(e2, i2, t2) : (L(e2, (s2 = A[i2]) + u + 1, t2), 0 !== (a2 = w[s2]) && P(e2, i2 -= I[s2], a2), L(e2, s2 = N(--n2), r2), 0 !== (a2 = k[s2]) && P(e2, n2 -= T[s2], a2)), o2 < e2.last_lit; ) ;
+        L(e2, m, t2);
+      }
+      function Y(e2, t2) {
+        var r2, n2, i2, s2 = t2.dyn_tree, a2 = t2.stat_desc.static_tree, o2 = t2.stat_desc.has_stree, h2 = t2.stat_desc.elems, u2 = -1;
+        for (e2.heap_len = 0, e2.heap_max = _, r2 = 0; r2 < h2; r2++) 0 !== s2[2 * r2] ? (e2.heap[++e2.heap_len] = u2 = r2, e2.depth[r2] = 0) : s2[2 * r2 + 1] = 0;
+        for (; e2.heap_len < 2; ) s2[2 * (i2 = e2.heap[++e2.heap_len] = u2 < 2 ? ++u2 : 0)] = 1, e2.depth[i2] = 0, e2.opt_len--, o2 && (e2.static_len -= a2[2 * i2 + 1]);
+        for (t2.max_code = u2, r2 = e2.heap_len >> 1; 1 <= r2; r2--) G(e2, s2, r2);
+        for (i2 = h2; r2 = e2.heap[1], e2.heap[1] = e2.heap[e2.heap_len--], G(e2, s2, 1), n2 = e2.heap[1], e2.heap[--e2.heap_max] = r2, e2.heap[--e2.heap_max] = n2, s2[2 * i2] = s2[2 * r2] + s2[2 * n2], e2.depth[i2] = (e2.depth[r2] >= e2.depth[n2] ? e2.depth[r2] : e2.depth[n2]) + 1, s2[2 * r2 + 1] = s2[2 * n2 + 1] = i2, e2.heap[1] = i2++, G(e2, s2, 1), 2 <= e2.heap_len; ) ;
+        e2.heap[--e2.heap_max] = e2.heap[1], function(e3, t3) {
+          var r3, n3, i3, s3, a3, o3, h3 = t3.dyn_tree, u3 = t3.max_code, l2 = t3.stat_desc.static_tree, f2 = t3.stat_desc.has_stree, c2 = t3.stat_desc.extra_bits, d2 = t3.stat_desc.extra_base, p2 = t3.stat_desc.max_length, m2 = 0;
+          for (s3 = 0; s3 <= g; s3++) e3.bl_count[s3] = 0;
+          for (h3[2 * e3.heap[e3.heap_max] + 1] = 0, r3 = e3.heap_max + 1; r3 < _; r3++) p2 < (s3 = h3[2 * h3[2 * (n3 = e3.heap[r3]) + 1] + 1] + 1) && (s3 = p2, m2++), h3[2 * n3 + 1] = s3, u3 < n3 || (e3.bl_count[s3]++, a3 = 0, d2 <= n3 && (a3 = c2[n3 - d2]), o3 = h3[2 * n3], e3.opt_len += o3 * (s3 + a3), f2 && (e3.static_len += o3 * (l2[2 * n3 + 1] + a3)));
+          if (0 !== m2) {
+            do {
+              for (s3 = p2 - 1; 0 === e3.bl_count[s3]; ) s3--;
+              e3.bl_count[s3]--, e3.bl_count[s3 + 1] += 2, e3.bl_count[p2]--, m2 -= 2;
+            } while (0 < m2);
+            for (s3 = p2; 0 !== s3; s3--) for (n3 = e3.bl_count[s3]; 0 !== n3; ) u3 < (i3 = e3.heap[--r3]) || (h3[2 * i3 + 1] !== s3 && (e3.opt_len += (s3 - h3[2 * i3 + 1]) * h3[2 * i3], h3[2 * i3 + 1] = s3), n3--);
+          }
+        }(e2, t2), Z(s2, u2, e2.bl_count);
+      }
+      function X(e2, t2, r2) {
+        var n2, i2, s2 = -1, a2 = t2[1], o2 = 0, h2 = 7, u2 = 4;
+        for (0 === a2 && (h2 = 138, u2 = 3), t2[2 * (r2 + 1) + 1] = 65535, n2 = 0; n2 <= r2; n2++) i2 = a2, a2 = t2[2 * (n2 + 1) + 1], ++o2 < h2 && i2 === a2 || (o2 < u2 ? e2.bl_tree[2 * i2] += o2 : 0 !== i2 ? (i2 !== s2 && e2.bl_tree[2 * i2]++, e2.bl_tree[2 * b]++) : o2 <= 10 ? e2.bl_tree[2 * v]++ : e2.bl_tree[2 * y]++, s2 = i2, u2 = (o2 = 0) === a2 ? (h2 = 138, 3) : i2 === a2 ? (h2 = 6, 3) : (h2 = 7, 4));
+      }
+      function V(e2, t2, r2) {
+        var n2, i2, s2 = -1, a2 = t2[1], o2 = 0, h2 = 7, u2 = 4;
+        for (0 === a2 && (h2 = 138, u2 = 3), n2 = 0; n2 <= r2; n2++) if (i2 = a2, a2 = t2[2 * (n2 + 1) + 1], !(++o2 < h2 && i2 === a2)) {
+          if (o2 < u2) for (; L(e2, i2, e2.bl_tree), 0 != --o2; ) ;
+          else 0 !== i2 ? (i2 !== s2 && (L(e2, i2, e2.bl_tree), o2--), L(e2, b, e2.bl_tree), P(e2, o2 - 3, 2)) : o2 <= 10 ? (L(e2, v, e2.bl_tree), P(e2, o2 - 3, 3)) : (L(e2, y, e2.bl_tree), P(e2, o2 - 11, 7));
+          s2 = i2, u2 = (o2 = 0) === a2 ? (h2 = 138, 3) : i2 === a2 ? (h2 = 6, 3) : (h2 = 7, 4);
+        }
+      }
+      n(T);
+      var q = false;
+      function J(e2, t2, r2, n2) {
+        P(e2, (s << 1) + (n2 ? 1 : 0), 3), function(e3, t3, r3, n3) {
+          M(e3), U(e3, r3), U(e3, ~r3), i.arraySet(e3.pending_buf, e3.window, t3, r3, e3.pending), e3.pending += r3;
+        }(e2, t2, r2);
+      }
+      r._tr_init = function(e2) {
+        q || (function() {
+          var e3, t2, r2, n2, i2, s2 = new Array(g + 1);
+          for (n2 = r2 = 0; n2 < a - 1; n2++) for (I[n2] = r2, e3 = 0; e3 < 1 << w[n2]; e3++) A[r2++] = n2;
+          for (A[r2 - 1] = n2, n2 = i2 = 0; n2 < 16; n2++) for (T[n2] = i2, e3 = 0; e3 < 1 << k[n2]; e3++) E[i2++] = n2;
+          for (i2 >>= 7; n2 < f; n2++) for (T[n2] = i2 << 7, e3 = 0; e3 < 1 << k[n2] - 7; e3++) E[256 + i2++] = n2;
+          for (t2 = 0; t2 <= g; t2++) s2[t2] = 0;
+          for (e3 = 0; e3 <= 143; ) z[2 * e3 + 1] = 8, e3++, s2[8]++;
+          for (; e3 <= 255; ) z[2 * e3 + 1] = 9, e3++, s2[9]++;
+          for (; e3 <= 279; ) z[2 * e3 + 1] = 7, e3++, s2[7]++;
+          for (; e3 <= 287; ) z[2 * e3 + 1] = 8, e3++, s2[8]++;
+          for (Z(z, l + 1, s2), e3 = 0; e3 < f; e3++) C[2 * e3 + 1] = 5, C[2 * e3] = j(e3, 5);
+          O = new D(z, w, u + 1, l, g), B = new D(C, k, 0, f, g), R = new D(new Array(0), x, 0, c, p);
+        }(), q = true), e2.l_desc = new F(e2.dyn_ltree, O), e2.d_desc = new F(e2.dyn_dtree, B), e2.bl_desc = new F(e2.bl_tree, R), e2.bi_buf = 0, e2.bi_valid = 0, W(e2);
+      }, r._tr_stored_block = J, r._tr_flush_block = function(e2, t2, r2, n2) {
+        var i2, s2, a2 = 0;
+        0 < e2.level ? (2 === e2.strm.data_type && (e2.strm.data_type = function(e3) {
+          var t3, r3 = 4093624447;
+          for (t3 = 0; t3 <= 31; t3++, r3 >>>= 1) if (1 & r3 && 0 !== e3.dyn_ltree[2 * t3]) return o;
+          if (0 !== e3.dyn_ltree[18] || 0 !== e3.dyn_ltree[20] || 0 !== e3.dyn_ltree[26]) return h;
+          for (t3 = 32; t3 < u; t3++) if (0 !== e3.dyn_ltree[2 * t3]) return h;
+          return o;
+        }(e2)), Y(e2, e2.l_desc), Y(e2, e2.d_desc), a2 = function(e3) {
+          var t3;
+          for (X(e3, e3.dyn_ltree, e3.l_desc.max_code), X(e3, e3.dyn_dtree, e3.d_desc.max_code), Y(e3, e3.bl_desc), t3 = c - 1; 3 <= t3 && 0 === e3.bl_tree[2 * S[t3] + 1]; t3--) ;
+          return e3.opt_len += 3 * (t3 + 1) + 5 + 5 + 4, t3;
+        }(e2), i2 = e2.opt_len + 3 + 7 >>> 3, (s2 = e2.static_len + 3 + 7 >>> 3) <= i2 && (i2 = s2)) : i2 = s2 = r2 + 5, r2 + 4 <= i2 && -1 !== t2 ? J(e2, t2, r2, n2) : 4 === e2.strategy || s2 === i2 ? (P(e2, 2 + (n2 ? 1 : 0), 3), K(e2, z, C)) : (P(e2, 4 + (n2 ? 1 : 0), 3), function(e3, t3, r3, n3) {
+          var i3;
+          for (P(e3, t3 - 257, 5), P(e3, r3 - 1, 5), P(e3, n3 - 4, 4), i3 = 0; i3 < n3; i3++) P(e3, e3.bl_tree[2 * S[i3] + 1], 3);
+          V(e3, e3.dyn_ltree, t3 - 1), V(e3, e3.dyn_dtree, r3 - 1);
+        }(e2, e2.l_desc.max_code + 1, e2.d_desc.max_code + 1, a2 + 1), K(e2, e2.dyn_ltree, e2.dyn_dtree)), W(e2), n2 && M(e2);
+      }, r._tr_tally = function(e2, t2, r2) {
+        return e2.pending_buf[e2.d_buf + 2 * e2.last_lit] = t2 >>> 8 & 255, e2.pending_buf[e2.d_buf + 2 * e2.last_lit + 1] = 255 & t2, e2.pending_buf[e2.l_buf + e2.last_lit] = 255 & r2, e2.last_lit++, 0 === t2 ? e2.dyn_ltree[2 * r2]++ : (e2.matches++, t2--, e2.dyn_ltree[2 * (A[r2] + u + 1)]++, e2.dyn_dtree[2 * N(t2)]++), e2.last_lit === e2.lit_bufsize - 1;
+      }, r._tr_align = function(e2) {
+        P(e2, 2, 3), L(e2, m, z), function(e3) {
+          16 === e3.bi_valid ? (U(e3, e3.bi_buf), e3.bi_buf = 0, e3.bi_valid = 0) : 8 <= e3.bi_valid && (e3.pending_buf[e3.pending++] = 255 & e3.bi_buf, e3.bi_buf >>= 8, e3.bi_valid -= 8);
+        }(e2);
+      };
+    }, { "../utils/common": 41 }], 53: [function(e, t, r) {
+      t.exports = function() {
+        this.input = null, this.next_in = 0, this.avail_in = 0, this.total_in = 0, this.output = null, this.next_out = 0, this.avail_out = 0, this.total_out = 0, this.msg = "", this.state = null, this.data_type = 2, this.adler = 0;
+      };
+    }, {}], 54: [function(e, t, r) {
+      (function(e2) {
+        !function(r2, n) {
+          if (!r2.setImmediate) {
+            var i, s, t2, a, o = 1, h = {}, u = false, l = r2.document, e3 = Object.getPrototypeOf && Object.getPrototypeOf(r2);
+            e3 = e3 && e3.setTimeout ? e3 : r2, i = "[object process]" === {}.toString.call(r2.process) ? function(e4) {
+              process.nextTick(function() {
+                c(e4);
+              });
+            } : function() {
+              if (r2.postMessage && !r2.importScripts) {
+                var e4 = true, t3 = r2.onmessage;
+                return r2.onmessage = function() {
+                  e4 = false;
+                }, r2.postMessage("", "*"), r2.onmessage = t3, e4;
+              }
+            }() ? (a = "setImmediate$" + Math.random() + "$", r2.addEventListener ? r2.addEventListener("message", d, false) : r2.attachEvent("onmessage", d), function(e4) {
+              r2.postMessage(a + e4, "*");
+            }) : r2.MessageChannel ? ((t2 = new MessageChannel()).port1.onmessage = function(e4) {
+              c(e4.data);
+            }, function(e4) {
+              t2.port2.postMessage(e4);
+            }) : l && "onreadystatechange" in l.createElement("script") ? (s = l.documentElement, function(e4) {
+              var t3 = l.createElement("script");
+              t3.onreadystatechange = function() {
+                c(e4), t3.onreadystatechange = null, s.removeChild(t3), t3 = null;
+              }, s.appendChild(t3);
+            }) : function(e4) {
+              setTimeout(c, 0, e4);
+            }, e3.setImmediate = function(e4) {
+              "function" != typeof e4 && (e4 = new Function("" + e4));
+              for (var t3 = new Array(arguments.length - 1), r3 = 0; r3 < t3.length; r3++) t3[r3] = arguments[r3 + 1];
+              var n2 = { callback: e4, args: t3 };
+              return h[o] = n2, i(o), o++;
+            }, e3.clearImmediate = f;
+          }
+          function f(e4) {
+            delete h[e4];
+          }
+          function c(e4) {
+            if (u) setTimeout(c, 0, e4);
+            else {
+              var t3 = h[e4];
+              if (t3) {
+                u = true;
+                try {
+                  !function(e5) {
+                    var t4 = e5.callback, r3 = e5.args;
+                    switch (r3.length) {
+                      case 0:
+                        t4();
+                        break;
+                      case 1:
+                        t4(r3[0]);
+                        break;
+                      case 2:
+                        t4(r3[0], r3[1]);
+                        break;
+                      case 3:
+                        t4(r3[0], r3[1], r3[2]);
+                        break;
+                      default:
+                        t4.apply(n, r3);
+                    }
+                  }(t3);
+                } finally {
+                  f(e4), u = false;
+                }
+              }
+            }
+          }
+          function d(e4) {
+            e4.source === r2 && "string" == typeof e4.data && 0 === e4.data.indexOf(a) && c(+e4.data.slice(a.length));
+          }
+        }("undefined" == typeof self ? void 0 === e2 ? this : e2 : self);
+      }).call(this, "undefined" != typeof commonjsGlobal ? commonjsGlobal : "undefined" != typeof self ? self : "undefined" != typeof window ? window : {});
+    }, {}] }, {}, [10])(10);
+  });
+})(jszip_min);
+var jszip_minExports = jszip_min.exports;
+const JSZip = /* @__PURE__ */ getDefaultExportFromCjs(jszip_minExports);
+class AuthorSyncAdapter {
+  /**
+   * Converts a Foundry JournalEntry into an AuthorSync-compatible tree node array.
+   * @param {JournalEntry} journalEntry - The Foundry JournalEntry to export.
+   * @returns {Array<Object>} The AuthorSync tree node array.
+   */
+  static exportJournal(journalEntry) {
+    log.i(`Exporting JournalEntry "${journalEntry.name}" to AuthorSync format`);
+    const rootNode = {
+      id: journalEntry.id,
+      label: journalEntry.name,
+      type: "branch",
+      children: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    const pages = journalEntry.pages.contents.sort((a, b) => (a.sort || 0) - (b.sort || 0));
+    rootNode.children = pages.map((page) => ({
+      id: page.id,
+      label: page.name,
+      type: "leaf",
+      content: page.text.content || "",
+      contentType: page.text.format === 1 ? "html" : "markdown",
+      order: page.sort || 0,
+      createdAt: page._stats?.createdTime || Date.now(),
+      updatedAt: page._stats?.modifiedTime || Date.now()
+    }));
+    return [rootNode];
+  }
+  /**
+   * Export a JournalEntry as a zip bundle that includes exported data and referenced assets.
+   * @param {JournalEntry} journalEntry
+   * @returns {Promise<Blob>} Zip blob containing the export
+   */
+  static async exportJournalAsZip(journalEntry) {
+    const exportData = this.exportJournal(journalEntry);
+    const zip = new JSZip();
+    zip.file("data.json", JSON.stringify(exportData, null, 2));
+    const assetUrls = this.extractAssetUrlsFromJournal(journalEntry);
+    if (assetUrls.size > 0) {
+      const assetsFolder = zip.folder("assets");
+      await Promise.all(Array.from(assetUrls, async (assetUrl) => {
+        try {
+          const blob = await this.downloadAssetBlob(assetUrl);
+          const filename = this.assetFilename(assetUrl);
+          assetsFolder.file(filename, blob);
+        } catch (error) {
+          console.warn("AuthorSyncAdapter: failed to bundle asset", assetUrl, error);
+        }
+      }));
+    }
+    return zip.generateAsync({ type: "blob" });
+  }
+  static extractAssetUrlsFromJournal(journalEntry) {
+    const urls = /* @__PURE__ */ new Set();
+    const markdownImageRegex = /!\[[^\]]*]\(([^)]+)\)/g;
+    const htmlImageRegex = /<img[^>]+src=["']([^"']+)["']/gi;
+    for (const page of journalEntry.pages.contents) {
+      const content = page.text.content || "";
+      if (page.text.format === 1) {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(content, "text/html");
+          doc.querySelectorAll("img").forEach((img) => {
+            if (img.src) urls.add(img.src);
+          });
+        } catch (error) {
+          console.warn("AuthorSyncAdapter: HTML parse failed", error);
+        }
+      }
+      let match;
+      while ((match = markdownImageRegex.exec(content)) !== null) {
+        if (match[1]) urls.add(match[1]);
+      }
+      while ((match = htmlImageRegex.exec(content)) !== null) {
+        if (match[1]) urls.add(match[1]);
+      }
+    }
+    return urls;
+  }
+  static assetFilename(assetUrl) {
+    try {
+      const url = new URL(assetUrl, window.location.href);
+      return url.pathname.split("/").pop() || `asset-${Date.now()}`;
+    } catch {
+      return `asset-${Date.now()}`;
+    }
+  }
+  static async downloadAssetBlob(assetUrl) {
+    const resolvedUrl = new URL(assetUrl, window.location.href).toString();
+    const response = await fetch(resolvedUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download asset ${resolvedUrl}: ${response.statusText}`);
+    }
+    return await response.blob();
+  }
+  static downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  static async importToJournal(authorSyncJson) {
+    log.i(`Importing AuthorSync tree to Foundry`);
+    let nodes = null;
+    if (Array.isArray(authorSyncJson)) {
+      nodes = authorSyncJson;
+    } else if (authorSyncJson && Array.isArray(authorSyncJson.tree)) {
+      nodes = authorSyncJson.tree;
+    }
+    if (!Array.isArray(nodes)) {
+      throw new Error("Invalid AuthorSync JSON format");
+    }
+    const importFolder = await Folder.create({
+      name: "AuthorSync Import",
+      type: "JournalEntry",
+      parent: null
+    });
+    const createdItems = [];
+    for (const node of nodes) {
+      const item = await this.importNodeRecursive(node, importFolder.id);
+      if (item) createdItems.push(item);
+    }
+    log.i(`Successfully imported ${createdItems.length} top-level AuthorSync node(s)`);
+    return createdItems;
+  }
+  static async importNodeRecursive(node, parentFolderId) {
+    if (!node) return null;
+    if (node.type === "branch") {
+      const branchLeaves = (node.children || []).filter((child) => child.type === "leaf");
+      const branchBranches = (node.children || []).filter((child) => child.type === "branch");
+      if (branchBranches.length === 0 && branchLeaves.length > 0) {
+        const journalEntry = await JournalEntry.create({
+          name: node.label || "Imported from AuthorSync",
+          folder: parentFolderId
+        });
+        const pageData = branchLeaves.map((child, index) => ({
+          name: child.label || `Page ${index + 1}`,
+          type: "text",
+          text: {
+            content: child.content || "",
+            format: child.contentType === "markdown" ? 2 : 1
+          },
+          sort: child.order || index
+        }));
+        if (pageData.length > 0) {
+          await journalEntry.createEmbeddedDocuments("JournalEntryPage", pageData);
+        }
+        return journalEntry;
+      }
+      const folder = await Folder.create({
+        name: node.label || "Imported Branch",
+        type: "JournalEntry",
+        parent: parentFolderId
+      });
+      for (const child of node.children || []) {
+        await this.importNodeRecursive(child, folder.id);
+      }
+      return folder;
+    }
+    if (node.type === "leaf") {
+      const journalEntry = await JournalEntry.create({
+        name: node.label || "Imported from AuthorSync",
+        folder: parentFolderId
+      });
+      const pageData = [{
+        name: node.label || "Page",
+        type: "text",
+        text: {
+          content: node.content || "",
+          format: node.contentType === "markdown" ? 2 : 1
+        },
+        sort: node.order || 0
+      }];
+      await journalEntry.createEmbeddedDocuments("JournalEntryPage", pageData);
+      return journalEntry;
+    }
+    return null;
+  }
+}
+function init(app, html, data) {
   log.i("Initialising");
-  CONFIG.debug.hooks = true;
+  if (safeGetSetting(MODULE_ID, "debug.hooks", false)) {
+    CONFIG.debug.hooks = true;
+  }
+  if (game.version > 13) {
+    window.MIN_WINDOW_WIDTH = 200;
+    window.MIN_WINDOW_HEIGHT = 50;
+  }
   registerSettings();
-});
-Hooks.once("ready", (app, html, data) => {
+  Hooks.on("renderJournalEntrySheet", (app2, html2) => {
+    const header = html2.querySelector(".journal-header");
+    if (!header) return;
+    if (header.querySelector(".authorsync-export-btn")) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "button authorsync-export-btn";
+    button.setAttribute("data-tooltip", "Export to AuthorSync");
+    button.innerHTML = '<img class="authorsync-logo-icon" src="/modules/foundryvtt-authorsync/assets/authorsync-logo.svg" alt="AuthorSync"> AuthorSync';
+    header.appendChild(button);
+    button.addEventListener("click", async () => {
+      try {
+        const zipBlob = await AuthorSyncAdapter.exportJournalAsZip(app2.document);
+        AuthorSyncAdapter.downloadBlob(zipBlob, `authorsync-${app2.document.name.slugify()}.zip`);
+        ui.notifications.info(`Exported "${app2.document.name}" to AuthorSync zip`);
+      } catch (err) {
+        console.error(err);
+        ui.notifications.error(`AuthorSync export failed: ${err.message}`);
+      }
+    });
+  });
+  Hooks.on("getJournalEntryContextOptions", (directory, options) => {
+    options.push({
+      label: "Export to AuthorSync",
+      icon: "authorsync-logo-icon",
+      visible: (li) => {
+        const entryId = li.dataset.entryId;
+        const entry = directory.collection.get(entryId);
+        return entry?.isOwner;
+      },
+      onClick: async (event, li) => {
+        try {
+          const entryId = li.dataset.entryId;
+          const journal = directory.collection.get(entryId);
+          if (!journal) return;
+          const zipBlob = await AuthorSyncAdapter.exportJournalAsZip(journal);
+          AuthorSyncAdapter.downloadBlob(zipBlob, `authorsync-${journal.name.slugify()}.zip`);
+          ui.notifications.info(`Exported "${journal.name}" to AuthorSync zip`);
+        } catch (err) {
+          console.error(err);
+          ui.notifications.error(`AuthorSync export failed: ${err.message}`);
+        }
+      }
+    });
+  });
+}
+function ready(app, html, data) {
   if (!game.modules.get(MODULE_ID).active) {
     log.w("Module is not active");
     return;
   }
-  if (!game.settings.get(MODULE_ID, "dontShowWelcome")) {
+  if (!safeGetSetting(MODULE_ID, "dontShowWelcome", false)) {
     new WelcomeApplication().render(true, { focus: true });
   }
-});
+}
+window.log = log;
+log.level = log.DEBUG;
+Hooks.once("init", init);
+Hooks.once("ready", ready);
 //# sourceMappingURL=index.js.map
