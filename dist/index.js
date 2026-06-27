@@ -19892,7 +19892,7 @@ class WelcomeAppShell extends SvelteComponent {
     flush();
   }
 }
-const version = "0.0.3";
+const version = "0.0.4";
 class WelcomeApplication extends SvelteApp {
   /**
    * Default Application options
