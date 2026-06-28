@@ -18,6 +18,7 @@ export default class AuthorSyncAdapter {
             id: journalEntry.id,
             label: journalEntry.name,
             type: 'branch',
+            foundryUuid: `JournalEntry.${journalEntry.id}`,
             children: [],
             createdAt: Date.now(),
             updatedAt: Date.now()
@@ -31,6 +32,7 @@ export default class AuthorSyncAdapter {
                 id: page.id,
                 label: page.name,
                 type: 'leaf',
+                foundryUuid: `JournalEntry.${journalEntry.id}.JournalEntryPage.${page.id}`,
                 content: isMarkdown
                     ? (page.text.markdown || page.text.content || '')
                     : (page.text.content || ''),
@@ -424,17 +426,29 @@ export default class AuthorSyncAdapter {
             parentFolderId = importFolder.id;
         }
 
+        /** @type {Map<string, string>} old foundryUuid → new Foundry UUID */
+        const uuidMap = new Map();
+        /** @type {Map<string, string>} old page ID → new full page UUID (for relative @UUID[.pageId] refs) */
+        const pageIdMap = new Map();
+        /** @type {JournalEntry[]} all journal entries created during import */
+        const allJournalEntries = [];
+
         const createdItems = [];
         for (const node of nodes) {
-            const item = await this.importNodeRecursive(node, parentFolderId);
+            const item = await this.importNodeRecursive(node, parentFolderId, uuidMap, pageIdMap, allJournalEntries);
             if (item) createdItems.push(item);
+        }
+
+        // Rewrite @UUID[...] references in all imported journal pages
+        if (uuidMap.size > 0) {
+            await this.rewriteImportedUuidReferences(allJournalEntries, uuidMap, pageIdMap);
         }
 
         window.GAS.log.i(`Successfully imported ${createdItems.length} top-level AuthorSync node(s)`);
         return createdItems;
     }
 
-    static async importNodeRecursive(node, parentFolderId) {
+    static async importNodeRecursive(node, parentFolderId, uuidMap, pageIdMap, allJournalEntries) {
         if (!node) return null;
 
         if (node.type === 'branch') {
@@ -447,12 +461,30 @@ export default class AuthorSyncAdapter {
                     folder: parentFolderId
                 });
 
+                // Record UUID mapping for the branch (journal entry) itself
+                if (node.foundryUuid) {
+                    uuidMap.set(node.foundryUuid, journalEntry.uuid);
+                }
+                allJournalEntries.push(journalEntry);
+
                 const pageData = branchLeaves.map((child, index) =>
                     this.buildJournalPageData(child, index)
                 );
 
                 if (pageData.length > 0) {
-                    await journalEntry.createEmbeddedDocuments('JournalEntryPage', pageData);
+                    const createdPages = await journalEntry.createEmbeddedDocuments('JournalEntryPage', pageData);
+                    // Record UUID mappings for each page
+                    for (let i = 0; i < createdPages.length; i++) {
+                        const page = createdPages[i];
+                        const childNode = branchLeaves[i];
+                        if (childNode?.foundryUuid) {
+                            uuidMap.set(childNode.foundryUuid, page.uuid);
+                        }
+                        // Map old page ID to new page UUID (for relative @UUID[.pageId] refs)
+                        if (childNode?.id) {
+                            pageIdMap.set(childNode.id, page.uuid);
+                        }
+                    }
                 }
 
                 return journalEntry;
@@ -465,7 +497,7 @@ export default class AuthorSyncAdapter {
             });
 
             for (const child of node.children || []) {
-                await this.importNodeRecursive(child, folder.id);
+                await this.importNodeRecursive(child, folder.id, uuidMap, pageIdMap, allJournalEntries);
             }
 
             return folder;
@@ -477,13 +509,98 @@ export default class AuthorSyncAdapter {
                 folder: parentFolderId
             });
 
+            // Record UUID mapping for the leaf (journal entry) itself
+            if (node.foundryUuid) {
+                uuidMap.set(node.foundryUuid, journalEntry.uuid);
+            }
+            allJournalEntries.push(journalEntry);
+
             const pageData = [this.buildJournalPageData(node, node.order || 0)];
 
-            await journalEntry.createEmbeddedDocuments('JournalEntryPage', pageData);
+            const createdPages = await journalEntry.createEmbeddedDocuments('JournalEntryPage', pageData);
+            // Record UUID mapping for the page
+            if (createdPages.length > 0 && node.foundryUuid) {
+                uuidMap.set(node.foundryUuid, createdPages[0].uuid);
+            }
+            // Map old page ID to new page UUID
+            if (createdPages.length > 0 && node.id) {
+                pageIdMap.set(node.id, createdPages[0].uuid);
+            }
+
             return journalEntry;
         }
 
         return null;
+    }
+
+    /**
+     * Rewrite @UUID[...] references in imported journal pages using the old→new UUID mapping.
+     * Handles both absolute (@UUID[JournalEntry.xxx.JournalEntryPage.yyy]) and
+     * relative (@UUID[.pageId]) references.
+     * @param {JournalEntry[]} journalEntries - All journal entries created during import
+     * @param {Map<string, string>} uuidMap - old foundryUuid → new Foundry UUID
+     * @param {Map<string, string>} pageIdMap - old page ID → new page UUID
+     */
+    static async rewriteImportedUuidReferences(journalEntries, uuidMap, pageIdMap) {
+        // Regex matches @UUID[...]{label} — captures the full UUID content and the label
+        const uuidRegex = /@UUID\[([^\]]+)\]\{([^}]*)\}/g;
+
+        for (const journalEntry of journalEntries) {
+            const pages = journalEntry.pages?.contents || [];
+            const updates = [];
+
+            for (const page of pages) {
+                const content = page.text?.content || '';
+                if (!content) continue;
+
+                let rewritten = content;
+                let hasChanges = false;
+
+                rewritten = rewritten.replace(uuidRegex, (match, uuidContent, label) => {
+                    // Handle relative references: @UUID[.pageId] or @UUID[.pageId#anchor]
+                    if (uuidContent.startsWith('.')) {
+                        const oldPageId = uuidContent.slice(1).split('#')[0];
+                        const newUuid = pageIdMap.get(oldPageId);
+                        if (newUuid) {
+                            hasChanges = true;
+                            const anchor = uuidContent.includes('#') ? '#' + uuidContent.split('#')[1] : '';
+                            return `@UUID[${newUuid}${anchor}]{${label}}`;
+                        }
+                        return match; // Unresolved — leave as-is
+                    }
+
+                    // Handle absolute references: @UUID[JournalEntry.xxx.JournalEntryPage.yyy]
+                    const newUuid = uuidMap.get(uuidContent);
+                    if (newUuid) {
+                        hasChanges = true;
+                        const anchor = uuidContent.includes('#') ? '#' + uuidContent.split('#')[1] : '';
+                        return `@UUID[${newUuid}${anchor}]{${label}}`;
+                    }
+
+                    // Also try matching just the document type + ID part (without anchor)
+                    if (uuidContent.includes('#')) {
+                        const baseUuid = uuidContent.split('#')[0];
+                        const anchor = '#' + uuidContent.split('#')[1];
+                        const newBaseUuid = uuidMap.get(baseUuid);
+                        if (newBaseUuid) {
+                            hasChanges = true;
+                            return `@UUID[${newBaseUuid}${anchor}]{${label}}`;
+                        }
+                    }
+
+                    return match; // Unresolved — leave as-is
+                });
+
+                if (hasChanges) {
+                    updates.push({ _id: page.id, text: { content: rewritten } });
+                }
+            }
+
+            if (updates.length > 0) {
+                await journalEntry.updateEmbeddedDocuments('JournalEntryPage', updates);
+                window.GAS.log.i(`Rewrote ${updates.length} page(s) with remapped @UUID references in "${journalEntry.name}"`);
+            }
+        }
     }
 
     /**
